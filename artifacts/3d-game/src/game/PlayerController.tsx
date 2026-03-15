@@ -12,11 +12,8 @@ const SEND_RATE = 1000 / 20;
 const JUMP_FORCE = 9;
 const GRAVITY = -22;
 
-// PUBG-style third-person camera
-const CAM_DIST = 3.5;
-const CAM_HEIGHT = 1.55;
-const CAM_SIDE = -0.55;
-const CAM_SMOOTH = 12;
+// First-person camera eye height (feet = 0, eyes ≈ 1.63)
+const EYE_HEIGHT = 1.63;
 
 // FOV settings
 const FOV_DEFAULT = 75;
@@ -304,9 +301,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const seqRef = useRef(0);
   const lastShotRef = useRef(0);
 
-  // Smooth camera target
-  const camPosRef = useRef(new THREE.Vector3());
-  const camInitRef = useRef(false);
 
   const isMovingRef = useRef(false);
   const isShootingRef = useRef(false);
@@ -335,7 +329,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     posRef.current.copy(spawnPos);
     velYRef.current = 0;
     onGroundRef.current = true;
-    camInitRef.current = false;
   }, [spawnPos]);
 
   useEffect(() => {
@@ -493,7 +486,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
       setHealth(data.health);
       isReloadingRef.current = false;
-      camInitRef.current = false;
     };
     const onDamage = (data: { health: number }) => {
       setHealth(data.health);
@@ -541,25 +533,13 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
     }
 
-    // --- PUBG-STYLE THIRD-PERSON CAMERA with smooth lerp ---
-    // Target position: behind + right-side offset so player appears to the right of crosshair
-    const targetCamX = posRef.current.x + sinY * CAM_DIST + cosY * CAM_SIDE;
-    const targetCamY = posRef.current.y + CAM_HEIGHT;
-    const targetCamZ = posRef.current.z + cosY * CAM_DIST - sinY * CAM_SIDE;
-
-    const targetPos = new THREE.Vector3(targetCamX, targetCamY, targetCamZ);
-
-    if (!camInitRef.current) {
-      // Instant snap on first frame / respawn
-      camPosRef.current.copy(targetPos);
-      camInitRef.current = true;
-    } else {
-      // Smooth follow — fast enough to feel responsive, smooth enough to avoid jitter
-      const lerpFactor = 1 - Math.exp(-CAM_SMOOTH * delta);
-      camPosRef.current.lerp(targetPos, lerpFactor);
-    }
-
-    camera.position.copy(camPosRef.current);
+    // --- FIRST-PERSON CAMERA ---
+    // Camera sits exactly at the player's eye level, no offset
+    camera.position.set(
+      posRef.current.x,
+      posRef.current.y + EYE_HEIGHT,
+      posRef.current.z,
+    );
 
     // Camera rotation: use YXZ order for FPS/TPS look (yaw then pitch)
     camera.rotation.order = "YXZ";
@@ -591,14 +571,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     }
   });
 
-  return (
-    <LocalCharacter
-      posRef={posRef}
-      yawRef={yawRef}
-      isMovingRef={isMovingRef}
-      isShootingRef={isShootingRef}
-      isReloadingRef={isReloadingRef}
-      selectedGun={selectedGun}
-    />
-  );
+  // First-person: don't render own body (camera is inside the head)
+  return null;
 }
