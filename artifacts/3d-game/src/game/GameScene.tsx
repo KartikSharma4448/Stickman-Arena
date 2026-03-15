@@ -90,7 +90,7 @@ export default function GameScene() {
         />
       )}
 
-      {Object.values(remotePlayers)
+      {myId && Object.values(remotePlayers)
         .filter((p) => p.id !== myId)
         .map((p) => (
           <Stickman key={p.id} player={p} />
