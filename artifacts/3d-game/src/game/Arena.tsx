@@ -74,14 +74,14 @@ function HangingLight({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
       <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.3, 0.12, 0.3]} />
-        <meshStandardMaterial color="#111" metalness={0.8} roughness={0.2} emissive="#ffcc44" emissiveIntensity={0.6} />
+        <boxGeometry args={[0.4, 0.14, 0.4]} />
+        <meshStandardMaterial color="#222" metalness={0.8} roughness={0.2} emissive="#ffee88" emissiveIntensity={1.2} />
       </mesh>
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.2, 4]} />
-        <meshStandardMaterial color="#333" metalness={0.9} />
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.25, 4]} />
+        <meshStandardMaterial color="#444" metalness={0.9} />
       </mesh>
-      <pointLight color="#ffddaa" intensity={1.2} distance={12} decay={2} />
+      <pointLight color="#ffe8aa" intensity={3.5} distance={18} decay={2} />
     </group>
   );
 }
@@ -118,9 +118,9 @@ export default function Arena() {
   const floorMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: 0x0d0d0d,
-        roughness: 0.98,
-        metalness: 0.02,
+        color: 0x2a2e2a,
+        roughness: 0.92,
+        metalness: 0.05,
       }),
     [],
   );
@@ -128,9 +128,9 @@ export default function Arena() {
   const wallMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: 0x111118,
-        roughness: 0.9,
-        metalness: 0.15,
+        color: 0x2e2e3a,
+        roughness: 0.8,
+        metalness: 0.2,
       }),
     [],
   );
@@ -138,9 +138,9 @@ export default function Arena() {
   const crateMatBrown = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: 0x1a1208,
-        roughness: 0.85,
-        metalness: 0.08,
+        color: 0x4a3520,
+        roughness: 0.8,
+        metalness: 0.1,
       }),
     [],
   );
@@ -148,9 +148,9 @@ export default function Arena() {
   const crateMatMetal = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: 0x101418,
-        roughness: 0.55,
-        metalness: 0.45,
+        color: 0x2a3040,
+        roughness: 0.5,
+        metalness: 0.5,
       }),
     [],
   );
@@ -158,9 +158,9 @@ export default function Arena() {
   const crateMatConcrete = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: 0x0e100e,
-        roughness: 0.95,
-        metalness: 0.02,
+        color: 0x383a36,
+        roughness: 0.92,
+        metalness: 0.03,
       }),
     [],
   );
@@ -228,14 +228,14 @@ export default function Arena() {
         </group>
       ))}
 
-      {/* LIGHTING - Very dark atmosphere */}
-      <ambientLight intensity={0.04} color="#112233" />
+      {/* LIGHTING - Bright industrial arena */}
+      <ambientLight intensity={0.55} color="#aabbcc" />
 
-      {/* Weak overhead directional - just for depth */}
+      {/* Main overhead sun-like directional */}
       <directionalLight
-        position={[0, 20, 5]}
-        intensity={0.18}
-        color="#223344"
+        position={[5, 22, 8]}
+        intensity={1.6}
+        color="#ffffff"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={0.1}
@@ -247,7 +247,10 @@ export default function Arena() {
         shadow-bias={-0.001}
       />
 
-      {/* Hanging industrial lights - warm pools */}
+      {/* Fill light from opposite side */}
+      <directionalLight position={[-8, 14, -10]} intensity={0.8} color="#cce0ff" />
+
+      {/* Hanging industrial lights - warm bright pools */}
       <HangingLight position={[0, 5.6, 0]} />
       <HangingLight position={[10, 5.6, 10]} />
       <HangingLight position={[-10, 5.6, 10]} />
@@ -258,22 +261,22 @@ export default function Arena() {
       <HangingLight position={[14, 5.6, 0]} />
       <HangingLight position={[-14, 5.6, 0]} />
 
-      {/* Emergency RED wall lamps */}
-      <WallLamp position={[0, 3.2, -24.4]} color="#cc1100" />
-      <WallLamp position={[0, 3.2, 24.4]} color="#cc1100" />
-      <WallLamp position={[24.4, 3.2, 0]} color="#cc1100" />
-      <WallLamp position={[-24.4, 3.2, 0]} color="#cc1100" />
-      <WallLamp position={[12, 3.2, -24.4]} color="#cc1100" />
-      <WallLamp position={[-12, 3.2, 24.4]} color="#cc1100" />
+      {/* Colored accent wall lamps */}
+      <WallLamp position={[0, 3.2, -24.4]} color="#ff4400" />
+      <WallLamp position={[0, 3.2, 24.4]} color="#ff4400" />
+      <WallLamp position={[24.4, 3.2, 0]} color="#ff4400" />
+      <WallLamp position={[-24.4, 3.2, 0]} color="#ff4400" />
+      <WallLamp position={[12, 3.2, -24.4]} color="#ff4400" />
+      <WallLamp position={[-12, 3.2, 24.4]} color="#ff4400" />
 
-      {/* Accent - blue/purple in corners */}
-      <FlickerLight position={[22, 1.5, 22]} color="#2233ff" baseIntensity={0.9} flickerSpeed={0.6} />
-      <FlickerLight position={[-22, 1.5, -22]} color="#2233ff" baseIntensity={0.9} flickerSpeed={0.8} />
-      <FlickerLight position={[22, 1.5, -22]} color="#3311cc" baseIntensity={0.7} flickerSpeed={0.5} />
-      <FlickerLight position={[-22, 1.5, 22]} color="#3311cc" baseIntensity={0.7} flickerSpeed={0.9} />
+      {/* Blue/purple corner accent lights */}
+      <FlickerLight position={[22, 2, 22]} color="#4466ff" baseIntensity={1.8} flickerSpeed={0.5} />
+      <FlickerLight position={[-22, 2, -22]} color="#4466ff" baseIntensity={1.8} flickerSpeed={0.7} />
+      <FlickerLight position={[22, 2, -22]} color="#6633ff" baseIntensity={1.5} flickerSpeed={0.4} />
+      <FlickerLight position={[-22, 2, 22]} color="#6633ff" baseIntensity={1.5} flickerSpeed={0.8} />
 
-      {/* Center pulsing danger light */}
-      <FlickerLight position={[0, 4, 0]} color="#ff1100" baseIntensity={1.0} flickerSpeed={1.5} />
+      {/* Center pulsing accent */}
+      <FlickerLight position={[0, 4, 0]} color="#ff3300" baseIntensity={1.4} flickerSpeed={1.2} />
     </group>
   );
 }

@@ -78,8 +78,8 @@ export default function GameScene() {
       style={{ position: "fixed", inset: 0 }}
       frameloop="always"
     >
-      <color attach="background" args={["#020208"]} />
-      <fog attach="fog" args={["#050510", 14, 42]} />
+      <color attach="background" args={["#1a1e2a"]} />
+      <fog attach="fog" args={["#1a1e2a", 30, 80]} />
 
       <Arena />
 
