@@ -13,7 +13,13 @@ export default function GameScene() {
   const isDead = useGameStore((s) => s.isDead);
   const myId = useGameStore((s) => s.myId);
   const addShootEvent = useGameStore((s) => s.addShootEvent);
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const reload = useGameStore((s) => s.reload);
   const spawnRef = useRef(new THREE.Vector3(0, 0, 0));
+
+  const antialias = graphicsQuality === "high";
+  const shadows = graphicsQuality !== "low";
+  const shadowMapSize = graphicsQuality === "high" ? 2048 : 1024;
 
   useEffect(() => {
     const socket = getSocket();
@@ -30,6 +36,16 @@ export default function GameScene() {
       socket.off("respawn", onRespawn);
     };
   }, []);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === "KeyR") {
+        reload();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [reload]);
 
   const handleShoot = useCallback(
     (origin: THREE.Vector3, dir: THREE.Vector3) => {
@@ -52,15 +68,18 @@ export default function GameScene() {
     <Canvas
       camera={{ fov: 75, near: 0.05, far: 500 }}
       gl={{
-        antialias: false,
-        powerPreference: "low-power",
-        precision: "lowp",
+        antialias,
+        powerPreference: graphicsQuality === "low" ? "low-power" : "high-performance",
+        precision: graphicsQuality === "low" ? "lowp" : "mediump",
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.1,
       }}
-      shadows="soft"
+      shadows={shadows ? "soft" : false}
       style={{ position: "fixed", inset: 0 }}
       frameloop="always"
     >
-      <fog attach="fog" args={["#1a1a2e", 30, 80]} />
+      <color attach="background" args={["#050510"]} />
+      <fog attach="fog" args={["#0a0a20", 25, 70]} />
 
       <Arena />
 

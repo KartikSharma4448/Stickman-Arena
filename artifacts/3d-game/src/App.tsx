@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useGameStore } from "./game/store";
 import { getSocket } from "./game/socket";
-import Lobby from "./game/Lobby";
+import SplashScreen from "./game/SplashScreen";
+import LoginScreen from "./game/LoginScreen";
+import MainLobby from "./game/MainLobby";
+import MatchEnd from "./game/MatchEnd";
 import GameScene from "./game/GameScene";
 import HUD from "./game/HUD";
 import TouchControls from "./game/TouchControls";
@@ -23,10 +26,13 @@ export default function App() {
   const addKill = useGameStore((s) => s.addKill);
   const addDeath = useGameStore((s) => s.addDeath);
   const setLatency = useGameStore((s) => s.setLatency);
+  const setHitIndicator = useGameStore((s) => s.setHitIndicator);
+  const recordShot = useGameStore((s) => s.recordShot);
   const myId = useGameStore((s) => s.myId);
   const respawnTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingStart = useRef(0);
+  const hitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const socket = getSocket();
@@ -88,6 +94,16 @@ export default function App() {
     });
 
     socket.on(
+      "player_hit",
+      (data: { damage: number; shooterId: string }) => {
+        setHitIndicator(true);
+        recordShot(true);
+        if (hitTimer.current) clearTimeout(hitTimer.current);
+        hitTimer.current = setTimeout(() => setHitIndicator(false), 350);
+      },
+    );
+
+    socket.on(
       "player_killed",
       (data: {
         killerId: string;
@@ -122,6 +138,7 @@ export default function App() {
 
           setTimeout(() => {
             setIsDead(false);
+            setHealth(100);
           }, 3000);
         }
       },
@@ -131,6 +148,7 @@ export default function App() {
       pingStart.current = Date.now();
       socket.emit("ping");
     }, 2000);
+
     socket.on("pong", () => {
       setLatency(Date.now() - pingStart.current);
     });
@@ -147,10 +165,12 @@ export default function App() {
       socket.off("player_left");
       socket.off("world_state");
       socket.off("shoot_event");
+      socket.off("player_hit");
       socket.off("player_killed");
       socket.off("pong");
       if (respawnTimer.current) clearInterval(respawnTimer.current);
       if (pingTimer.current) clearInterval(pingTimer.current);
+      if (hitTimer.current) clearTimeout(hitTimer.current);
     };
   }, []);
 
@@ -163,8 +183,11 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#0a0a1a" }}>
-      {phase === "lobby" && <Lobby />}
+    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#050510" }}>
+      {phase === "splash" && <SplashScreen />}
+      {phase === "login" && <LoginScreen />}
+      {phase === "lobby" && <MainLobby />}
+      {phase === "results" && <MatchEnd />}
       {phase === "playing" && (
         <>
           <GameScene />

@@ -41,13 +41,26 @@ export interface Room {
   maxPlayers: number;
 }
 
-type GamePhase = "lobby" | "playing";
+export type GamePhase = "splash" | "login" | "lobby" | "matchmaking" | "playing" | "results";
+
+export interface MatchResult {
+  kills: number;
+  deaths: number;
+  accuracy: number;
+  xpGained: number;
+  placement: number;
+}
 
 interface GameState {
   phase: GamePhase;
   myId: string | null;
   myName: string;
+  myLevel: number;
+  myXp: number;
+  myRegion: string;
   health: number;
+  ammo: number;
+  maxAmmo: number;
   kills: number;
   deaths: number;
   isDead: boolean;
@@ -61,11 +74,20 @@ interface GameState {
   hitIndicator: boolean;
   headshotIndicator: boolean;
   latency: number;
+  matchResult: MatchResult | null;
+  graphicsQuality: "low" | "medium" | "high";
+  selectedGun: string;
+  matchTime: number;
+  totalShots: number;
+  hitShots: number;
 
   setPhase: (p: GamePhase) => void;
   setMyId: (id: string) => void;
   setMyName: (n: string) => void;
+  setMyRegion: (r: string) => void;
   setHealth: (h: number) => void;
+  setAmmo: (a: number) => void;
+  reload: () => void;
   addKill: () => void;
   addDeath: () => void;
   setIsDead: (d: boolean) => void;
@@ -82,16 +104,27 @@ interface GameState {
   setHitIndicator: (h: boolean) => void;
   setHeadshotIndicator: (h: boolean) => void;
   setLatency: (l: number) => void;
+  setMatchResult: (r: MatchResult | null) => void;
+  setGraphicsQuality: (q: "low" | "medium" | "high") => void;
+  setSelectedGun: (g: string) => void;
+  recordShot: (hit: boolean) => void;
+  resetMatchStats: () => void;
+  addXp: (amount: number) => void;
 }
 
 let killFeedIdCounter = 0;
 let shootEventIdCounter = 0;
 
 export const useGameStore = create<GameState>((set) => ({
-  phase: "lobby",
+  phase: "splash",
   myId: null,
   myName: "Player",
+  myLevel: 1,
+  myXp: 0,
+  myRegion: "Asia",
   health: 100,
+  ammo: 30,
+  maxAmmo: 30,
   kills: 0,
   deaths: 0,
   isDead: false,
@@ -105,12 +138,21 @@ export const useGameStore = create<GameState>((set) => ({
   hitIndicator: false,
   headshotIndicator: false,
   latency: 0,
+  matchResult: null,
+  graphicsQuality: "medium",
+  selectedGun: "AK-47",
+  matchTime: 0,
+  totalShots: 0,
+  hitShots: 0,
 
   setPhase: (phase) => set({ phase }),
   setMyId: (myId) => set({ myId }),
   setMyName: (myName) => set({ myName }),
+  setMyRegion: (myRegion) => set({ myRegion }),
   setHealth: (health) => set({ health }),
-  addKill: () => set((s) => ({ kills: s.kills + 1 })),
+  setAmmo: (ammo) => set({ ammo }),
+  reload: () => set((s) => ({ ammo: s.maxAmmo })),
+  addKill: () => set((s) => ({ kills: s.kills + 1, hitShots: s.hitShots + 1 })),
   addDeath: () => set((s) => ({ deaths: s.deaths + 1 })),
   setIsDead: (isDead) => set({ isDead }),
   setRespawnCountdown: (respawnCountdown) => set({ respawnCountdown }),
@@ -166,4 +208,25 @@ export const useGameStore = create<GameState>((set) => ({
   setHitIndicator: (hitIndicator) => set({ hitIndicator }),
   setHeadshotIndicator: (headshotIndicator) => set({ headshotIndicator }),
   setLatency: (latency) => set({ latency }),
+  setMatchResult: (matchResult) => set({ matchResult }),
+  setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
+  setSelectedGun: (selectedGun) => set({ selectedGun }),
+
+  recordShot: (hit) =>
+    set((s) => ({
+      totalShots: s.totalShots + 1,
+      hitShots: hit ? s.hitShots + 1 : s.hitShots,
+      ammo: Math.max(0, s.ammo - 1),
+    })),
+
+  resetMatchStats: () =>
+    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30 }),
+
+  addXp: (amount) =>
+    set((s) => {
+      const newXp = s.myXp + amount;
+      const xpPerLevel = 500;
+      const newLevel = Math.floor(newXp / xpPerLevel) + 1;
+      return { myXp: newXp, myLevel: newLevel };
+    }),
 }));

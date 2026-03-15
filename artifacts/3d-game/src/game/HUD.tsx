@@ -11,10 +11,15 @@ export default function HUD() {
   const remotePlayers = useGameStore((s) => s.remotePlayers);
   const myName = useGameStore((s) => s.myName);
   const latency = useGameStore((s) => s.latency);
+  const ammo = useGameStore((s) => s.ammo);
+  const maxAmmo = useGameStore((s) => s.maxAmmo);
+  const selectedGun = useGameStore((s) => s.selectedGun);
+  const setPhase = useGameStore((s) => s.setPhase);
 
-  const scoreboard = Object.values(remotePlayers).sort(
-    (a, b) => b.kills - a.kills,
-  );
+  const scoreboard = Object.values(remotePlayers).sort((a, b) => b.kills - a.kills);
+  const kd = deaths > 0 ? (kills / deaths).toFixed(1) : kills.toString();
+
+  const healthColor = health > 60 ? "#00e676" : health > 30 ? "#ffb300" : "#f44336";
 
   return (
     <>
@@ -23,10 +28,10 @@ export default function HUD() {
           style={{
             position: "fixed",
             inset: 0,
-            border: "6px solid rgba(255,0,0,0.5)",
+            border: "6px solid rgba(255,0,0,0.6)",
             pointerEvents: "none",
             zIndex: 50,
-            animation: "fadeOut 0.3s ease-out",
+            animation: "fadeOut 0.4s ease-out forwards",
           }}
         />
       )}
@@ -37,32 +42,26 @@ export default function HUD() {
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: 20,
-          height: 20,
           zIndex: 40,
           pointerEvents: "none",
+          width: 24,
+          height: 24,
         }}
       >
+        <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.85)", left: "50%", top: 0, transform: "translateX(-50%)" }} />
+        <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.85)", left: "50%", bottom: 0, transform: "translateX(-50%)" }} />
+        <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.85)", top: "50%", left: 0, transform: "translateY(-50%)" }} />
+        <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.85)", top: "50%", right: 0, transform: "translateY(-50%)" }} />
         <div
           style={{
             position: "absolute",
-            width: 2,
-            height: 20,
-            background: "rgba(255,255,255,0.9)",
-            left: "50%",
-            top: 0,
-            transform: "translateX(-50%)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            height: 2,
-            width: 20,
-            background: "rgba(255,255,255,0.9)",
+            width: 3,
+            height: 3,
+            background: "rgba(255,255,255,0.6)",
+            borderRadius: "50%",
             top: "50%",
-            left: 0,
-            transform: "translateY(-50%)",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
           }}
         />
       </div>
@@ -73,35 +72,79 @@ export default function HUD() {
           bottom: 20,
           left: 20,
           zIndex: 40,
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
         }}
       >
-        <div style={{ color: "#aaa", fontSize: 12 }}>HEALTH</div>
         <div
           style={{
-            width: 180,
-            height: 12,
-            background: "rgba(0,0,0,0.5)",
-            borderRadius: 6,
-            overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(0,0,0,0.55)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            backdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            minWidth: 180,
           }}
         >
           <div
             style={{
-              width: `${Math.max(0, health)}%`,
-              height: "100%",
-              background:
-                health > 60 ? "#00ff44" : health > 30 ? "#ffaa00" : "#ff2200",
-              borderRadius: 6,
-              transition: "width 0.2s",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 6,
             }}
-          />
-        </div>
-        <div style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
-          {Math.max(0, health)} HP
+          >
+            <span style={{ fontSize: 10, color: "#888", letterSpacing: 1 }}>HEALTH</span>
+            <span
+              style={{ fontSize: 18, fontWeight: 900, color: healthColor, fontFamily: "monospace" }}
+            >
+              {Math.max(0, health)}
+            </span>
+          </div>
+          <div
+            style={{
+              height: 6,
+              background: "rgba(255,255,255,0.08)",
+              borderRadius: 3,
+              overflow: "hidden",
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.max(0, health)}%`,
+                height: "100%",
+                background: `linear-gradient(90deg, ${healthColor}, ${healthColor}88)`,
+                borderRadius: 3,
+                transition: "width 0.2s, background 0.3s",
+                boxShadow: `0 0 8px ${healthColor}66`,
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: 10, color: "#888", letterSpacing: 1 }}>AMMO</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+              <span
+                style={{
+                  fontSize: 18,
+                  fontWeight: 900,
+                  color: ammo <= 5 ? "#f44336" : "#fff",
+                  fontFamily: "monospace",
+                }}
+              >
+                {ammo}
+              </span>
+              <span style={{ fontSize: 11, color: "#555" }}>/{maxAmmo}</span>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: "#555", marginTop: 3 }}>
+            {selectedGun} • Press R to reload
+          </div>
         </div>
       </div>
 
@@ -112,18 +155,54 @@ export default function HUD() {
           right: 20,
           zIndex: 40,
           textAlign: "right",
-          color: "#fff",
-          fontFamily: "monospace",
         }}
       >
-        <div style={{ fontSize: 24, fontWeight: "bold" }}>
-          <span style={{ color: "#ffcc00" }}>{kills}</span>
-          <span style={{ color: "#888" }}> / </span>
-          <span style={{ color: "#ff6666" }}>{deaths}</span>
-        </div>
-        <div style={{ fontSize: 11, color: "#aaa" }}>KILLS / DEATHS</div>
-        <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>
-          {latency}ms
+        <div
+          style={{
+            background: "rgba(0,0,0,0.55)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            backdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div
+            style={{ fontSize: 26, fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}
+          >
+            <span style={{ color: "#6bcb77" }}>{kills}</span>
+            <span style={{ color: "#444", fontSize: 18 }}> / </span>
+            <span style={{ color: "#ff6b6b" }}>{deaths}</span>
+          </div>
+          <div style={{ fontSize: 10, color: "#555", marginTop: 3, letterSpacing: 1 }}>
+            KILLS / DEATHS
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              paddingTop: 8,
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 14,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, color: "#aaa", fontWeight: "bold" }}>{kd}</div>
+              <div style={{ fontSize: 9, color: "#555" }}>K/D</div>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: latency < 80 ? "#6bcb77" : latency < 150 ? "#ffd93d" : "#ff6b6b",
+                  fontWeight: "bold",
+                }}
+              >
+                {latency}ms
+              </div>
+              <div style={{ fontSize: 9, color: "#555" }}>PING</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -136,29 +215,42 @@ export default function HUD() {
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          maxWidth: 200,
+          maxWidth: 220,
         }}
       >
         {killFeed.slice(0, 5).map((k) => (
           <div
             key={k.id}
             style={{
-              background: "rgba(0,0,0,0.6)",
-              padding: "3px 8px",
-              borderRadius: 4,
+              background: "rgba(0,0,0,0.7)",
+              padding: "5px 10px",
+              borderRadius: 6,
               fontSize: 12,
               color: "#fff",
               display: "flex",
-              gap: 4,
+              gap: 6,
               alignItems: "center",
+              backdropFilter: "blur(4px)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderLeft: k.headshot ? "3px solid #ffd93d" : "3px solid #ff6b6b",
             }}
           >
-            <span style={{ color: "#88ccff" }}>{k.killerName}</span>
-            {k.headshot && (
-              <span style={{ color: "#ffcc00", fontSize: 10 }}>🎯</span>
-            )}
-            <span style={{ color: "#ff6666" }}>→</span>
-            <span style={{ color: "#ff9999" }}>{k.victimName}</span>
+            <span style={{ color: "#88ccff", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {k.killerName}
+            </span>
+            {k.headshot && <span style={{ color: "#ffd93d", fontSize: 11 }}>🎯</span>}
+            <span style={{ color: "#ff6b6b" }}>→</span>
+            <span
+              style={{
+                color: "#ff9999",
+                maxWidth: 80,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {k.victimName}
+            </span>
           </div>
         ))}
       </div>
@@ -169,60 +261,104 @@ export default function HUD() {
           top: 20,
           left: 20,
           zIndex: 40,
-          background: "rgba(0,0,0,0.6)",
-          borderRadius: 6,
-          padding: "8px 12px",
-          minWidth: 160,
         }}
       >
         <div
           style={{
-            color: "#ffcc00",
-            fontSize: 11,
-            fontWeight: "bold",
-            marginBottom: 4,
+            background: "rgba(0,0,0,0.6)",
+            borderRadius: 10,
+            padding: "10px 14px",
+            minWidth: 170,
+            backdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.07)",
           }}
         >
-          SCOREBOARD
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", color: "#666", fontSize: 10, marginBottom: 2 }}>
-          <span>NAME</span>
-          <span>K / D</span>
-        </div>
-        <div
-          style={{
-            color: "#88ff88",
-            fontSize: 11,
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 1,
-          }}
-        >
-          <span style={{ color: "#88ccff" }}>★ {myName.slice(0, 10)}</span>
-          <span>
-            {kills} / {deaths}
-          </span>
-        </div>
-        {scoreboard.map((p) => (
           <div
-            key={p.id}
             style={{
-              fontSize: 11,
-              display: "flex",
-              justifyContent: "space-between",
-              color: "#ccc",
-              marginBottom: 1,
+              color: "#ffd93d",
+              fontSize: 10,
+              fontWeight: "bold",
+              marginBottom: 6,
+              letterSpacing: 1,
             }}
           >
-            <span style={{ maxWidth: 90, overflow: "hidden" }}>
-              {p.name.slice(0, 10)}
-            </span>
-            <span>
-              {p.kills} / {p.deaths}
+            SCOREBOARD
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              color: "#444",
+              fontSize: 9,
+              marginBottom: 4,
+              letterSpacing: 0.5,
+            }}
+          >
+            <span>NAME</span>
+            <span>K / D</span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 11,
+              marginBottom: 2,
+              padding: "2px 0",
+            }}
+          >
+            <span style={{ color: "#4a9eff" }}>★ {myName.slice(0, 12)}</span>
+            <span style={{ color: "#aaa" }}>
+              <span style={{ color: "#6bcb77" }}>{kills}</span>
+              {" / "}
+              <span style={{ color: "#ff6b6b" }}>{deaths}</span>
             </span>
           </div>
-        ))}
+          {scoreboard.slice(0, 6).map((p) => (
+            <div
+              key={p.id}
+              style={{
+                fontSize: 11,
+                display: "flex",
+                justifyContent: "space-between",
+                color: "#777",
+                marginBottom: 2,
+                padding: "2px 0",
+              }}
+            >
+              <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.name.slice(0, 12)}
+              </span>
+              <span>
+                <span style={{ color: "#6bcb77" }}>{p.kills}</span>
+                {" / "}
+                <span style={{ color: "#ff6b6b" }}>{p.deaths}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <button
+        onClick={() => setPhase("results")}
+        style={{
+          position: "fixed",
+          top: 20,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 40,
+          background: "rgba(0,0,0,0.5)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 8,
+          padding: "6px 18px",
+          color: "#888",
+          fontSize: 11,
+          cursor: "pointer",
+          letterSpacing: 1,
+          backdropFilter: "blur(4px)",
+        }}
+      >
+        END MATCH
+      </button>
 
       {isDead && (
         <div
@@ -233,31 +369,34 @@ export default function HUD() {
             transform: "translate(-50%, -50%)",
             zIndex: 60,
             textAlign: "center",
-            color: "#ff4444",
           }}
         >
-          <div style={{ fontSize: 48, fontWeight: "bold" }}>YOU DIED</div>
-          <div style={{ fontSize: 20, color: "#fff", marginTop: 8 }}>
-            Respawning in {respawnCountdown}s...
+          <div
+            style={{
+              fontSize: 56,
+              fontWeight: 900,
+              color: "#f44336",
+              letterSpacing: 4,
+              textShadow: "0 0 40px rgba(244,67,54,0.6)",
+            }}
+          >
+            YOU DIED
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              color: "#fff",
+              marginTop: 10,
+              background: "rgba(0,0,0,0.6)",
+              padding: "8px 24px",
+              borderRadius: 30,
+            }}
+          >
+            Respawning in{" "}
+            <span style={{ color: "#ffd93d", fontWeight: "bold" }}>{respawnCountdown}s</span>
           </div>
         </div>
       )}
-
-      <div
-        style={{
-          position: "fixed",
-          bottom: 60,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 40,
-          color: "rgba(255,255,255,0.5)",
-          fontSize: 12,
-          pointerEvents: "none",
-          textAlign: "center",
-        }}
-      >
-        Click to aim • WASD move • LMB shoot
-      </div>
     </>
   );
 }
