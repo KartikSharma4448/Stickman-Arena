@@ -179,7 +179,7 @@ export default function Stickman({ player }: StickmanProps) {
           </mesh>
           <mesh position={[0, 0.1, 0]}>
             <boxGeometry args={[0.4, 0.001, 0.001]} />
-            <meshBasicMaterial color="#0000" />
+            <meshBasicMaterial color="#000000" />
           </mesh>
         </group>
       )}

@@ -5,6 +5,7 @@ import { useGameStore } from "./store";
 import { getSocket } from "./socket";
 import { ARENA_BOUNDS, ARENA_BOXES } from "./Arena";
 import GunModel from "./GunModel";
+import { touchState, touchJumpPending, clearTouchJump, touchScopeActive } from "./TouchControls";
 
 const MOVE_SPEED = 7;
 const PLAYER_RADIUS = 0.35;
@@ -414,6 +415,8 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         pos.z + PLAYER_RADIUS > box.min.z &&
         pos.z - PLAYER_RADIUS < box.max.z
       ) {
+        // Allow walking if player feet are at or above the box top (standing on it)
+        if (pos.y >= box.max.y - 0.06) continue;
         return true;
       }
     }
@@ -509,11 +512,33 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     const fwX = -sinY, fwZ = -cosY;
     const rtX = cosY, rtZ = -sinY;
 
+    // ─── Touch look (delta-based, consume after use) ───────────────────
+    if (touchState.lookJoystick.deltaX !== 0 || touchState.lookJoystick.deltaY !== 0) {
+      yawRef.current -= touchState.lookJoystick.deltaX * 0.005;
+      pitchRef.current -= touchState.lookJoystick.deltaY * 0.005;
+      pitchRef.current = Math.max(-1.3, Math.min(0.7, pitchRef.current));
+      touchState.lookJoystick.deltaX = 0;
+      touchState.lookJoystick.deltaY = 0;
+    }
+
     const moveDir = new THREE.Vector3();
     if (k["KeyW"] || k["ArrowUp"]) moveDir.add(new THREE.Vector3(fwX, 0, fwZ));
     if (k["KeyS"] || k["ArrowDown"]) moveDir.sub(new THREE.Vector3(fwX, 0, fwZ));
     if (k["KeyA"] || k["ArrowLeft"]) moveDir.sub(new THREE.Vector3(rtX, 0, rtZ));
     if (k["KeyD"] || k["ArrowRight"]) moveDir.add(new THREE.Vector3(rtX, 0, rtZ));
+
+    // ─── Touch movement joystick ────────────────────────────────────────
+    if (touchState.moveJoystick.active) {
+      const tdx = Math.min(1, Math.max(-1, touchState.moveJoystick.dx));
+      const tdy = Math.min(1, Math.max(-1, touchState.moveJoystick.dy));
+      if (Math.abs(tdx) > 0.05 || Math.abs(tdy) > 0.05) {
+        moveDir.add(new THREE.Vector3(
+          fwX * -tdy + rtX * tdx,
+          0,
+          fwZ * -tdy + rtZ * tdx,
+        ));
+      }
+    }
 
     isMovingRef.current = moveDir.lengthSq() > 0.01;
     if (isMovingRef.current) moveDir.normalize();
@@ -524,11 +549,45 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     if (!checkCollision(tryX)) posRef.current.x = tryX.x;
     if (!checkCollision(tryZ)) posRef.current.z = tryZ.z;
 
-    // Gravity + jump
+    // ─── Touch jump ────────────────────────────────────────────────────
+    if (touchJumpPending && onGroundRef.current) {
+      velYRef.current = JUMP_FORCE;
+      onGroundRef.current = false;
+      clearTouchJump();
+    }
+
+    // ─── Gravity ────────────────────────────────────────────────────────
     velYRef.current += GRAVITY * delta;
     posRef.current.y += velYRef.current * delta;
-    if (posRef.current.y <= 0) {
-      posRef.current.y = 0;
+    onGroundRef.current = false;
+
+    // Find highest surface the player is standing on (floor or platform top)
+    let groundY = 0;
+    const px = posRef.current.x;
+    const pz = posRef.current.z;
+    for (const box of ARENA_BOXES) {
+      if (
+        px + PLAYER_RADIUS > box.min.x &&
+        px - PLAYER_RADIUS < box.max.x &&
+        pz + PLAYER_RADIUS > box.min.z &&
+        pz - PLAYER_RADIUS < box.max.z
+      ) {
+        // Player over this box — snap to top if falling onto it
+        if (velYRef.current <= 0.05) {
+          groundY = Math.max(groundY, box.max.y);
+        }
+        // Ceiling: jumping into bottom of a platform
+        if (velYRef.current > 0) {
+          const headY = posRef.current.y + EYE_HEIGHT;
+          if (headY > box.min.y && headY - velYRef.current * delta <= box.min.y) {
+            velYRef.current = 0;
+          }
+        }
+      }
+    }
+
+    if (posRef.current.y <= groundY) {
+      posRef.current.y = groundY;
       velYRef.current = 0;
       onGroundRef.current = true;
     }
@@ -547,9 +606,13 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     camera.rotation.x = pitchRef.current;
     camera.rotation.z = 0;
 
+    // Merge mouse scope + touch ADS for FOV and HUD
+    const effectiveScoped = isScopedRef.current || touchScopeActive;
+    setIsScoped(effectiveScoped);
+
     // Smooth FOV zoom for scope / ADS
     const cam = camera as THREE.PerspectiveCamera;
-    const targetFov = isScopedRef.current
+    const targetFov = effectiveScoped
       ? selectedGun === "Sniper" ? FOV_SNIPER : FOV_ADS
       : FOV_DEFAULT;
     cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 1 - Math.exp(-14 * delta));

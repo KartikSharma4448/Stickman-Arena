@@ -2,281 +2,259 @@ import * as THREE from "three";
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 
-const BOX_POSITIONS: Array<[number, number, number, number, number, number]> = [
-  // Corner crates
-  [9, 1, 9, 3.5, 2, 3.5],
-  [-9, 1, 9, 3.5, 2, 3.5],
-  [9, 1, -9, 3.5, 2, 3.5],
-  [-9, 1, -9, 3.5, 2, 3.5],
-  // Side walls
-  [0, 1.5, 14, 7, 3, 1.5],
-  [0, 1.5, -14, 7, 3, 1.5],
-  [14, 1.5, 0, 1.5, 3, 7],
-  [-14, 1.5, 0, 1.5, 3, 7],
-  // Center low covers
-  [0, 0.4, 5.5, 2.5, 0.8, 2.5],
-  [0, 0.4, -5.5, 2.5, 0.8, 2.5],
-  [5.5, 0.4, 0, 2.5, 0.8, 2.5],
-  [-5.5, 0.4, 0, 2.5, 0.8, 2.5],
-  // Pillars
-  [18, 2, 10, 1.5, 4, 1.5],
-  [-18, 2, 10, 1.5, 4, 1.5],
-  [18, 2, -10, 1.5, 4, 1.5],
-  [-18, 2, -10, 1.5, 4, 1.5],
-  // Extra cover
-  [12, 0.75, 5, 1.5, 1.5, 3.5],
-  [-12, 0.75, -5, 1.5, 1.5, 3.5],
-  [5, 0.75, 12, 3.5, 1.5, 1.5],
-  [-5, 0.75, -12, 3.5, 1.5, 1.5],
+/**
+ * MAP: "Operation Highlands" - outdoor multi-level compound
+ * Format: [cx, cy, cz,  w, h, d]
+ *   cy = center Y  →  top = cy + h/2
+ *
+ * Level 1 platforms: top ≈ 1.2  (cy=0.6, h=1.2) — jump from ground ✓
+ * Level 2 platforms: top ≈ 2.4  (cy=1.8, h=1.2) — jump from L1 ✓
+ * Level 3 platforms: top ≈ 3.6  (cy=3.0, h=1.2) — jump from L2 ✓
+ * Sniper towers:     top ≈ 5.0  (cy=4.4, h=1.2) — jump from L3 ✓
+ *
+ * Jump physics: v²/(2g) = 81/44 ≈ 1.84m max height per jump
+ */
+
+const MAP_OBJECTS: [number, number, number, number, number, number][] = [
+  // ─── OUTER BOUNDARY WALLS ───────────────────────────────────────────
+  [0,   3, -28,  58, 6, 1.2],
+  [0,   3,  28,  58, 6, 1.2],
+  [28,  3,   0, 1.2, 6,  58],
+  [-28, 3,   0, 1.2, 6,  58],
+
+  // ─── CORNER SNIPER TOWERS (top ≈ 5) ─────────────────────────────────
+  [-22, 2.5, -22, 6, 5, 6],
+  [ 22, 2.5, -22, 6, 5, 6],
+  [-22, 2.5,  22, 6, 5, 6],
+  [ 22, 2.5,  22, 6, 5, 6],
+
+  // ─── STAIRCASE TO NW TOWER ─────────────────────────────────────────
+  [-13, 0.6, -13, 3.5, 1.2, 3.5],   // L1 step
+  [-16, 1.8, -16, 3.5, 1.2, 3.5],   // L2 step
+  [-19, 3.0, -19, 3.5, 1.2, 3.5],   // L3 step → jump to tower top (top=5)
+
+  // ─── STAIRCASE TO NE TOWER ─────────────────────────────────────────
+  [ 13, 0.6, -13, 3.5, 1.2, 3.5],
+  [ 16, 1.8, -16, 3.5, 1.2, 3.5],
+  [ 19, 3.0, -19, 3.5, 1.2, 3.5],
+
+  // ─── STAIRCASE TO SW TOWER ─────────────────────────────────────────
+  [-13, 0.6,  13, 3.5, 1.2, 3.5],
+  [-16, 1.8,  16, 3.5, 1.2, 3.5],
+  [-19, 3.0,  19, 3.5, 1.2, 3.5],
+
+  // ─── STAIRCASE TO SE TOWER ─────────────────────────────────────────
+  [ 13, 0.6,  13, 3.5, 1.2, 3.5],
+  [ 16, 1.8,  16, 3.5, 1.2, 3.5],
+  [ 19, 3.0,  19, 3.5, 1.2, 3.5],
+
+  // ─── CENTER ELEVATED PLATFORM (top=2.4) ────────────────────────────
+  [0, 1.8, 0, 7, 1.2, 7],           // top = 2.4
+  // Approach steps to center:
+  [-5, 0.6, 0, 3, 1.2, 3],          // west L1
+  [ 5, 0.6, 0, 3, 1.2, 3],          // east L1
+  [0, 0.6, -5, 3, 1.2, 3],          // north L1
+  [0, 0.6,  5, 3, 1.2, 3],          // south L1
+
+  // ─── NORTH BUNKER (solid building, top=3) ──────────────────────────
+  [0, 1.5, -18, 8, 3, 6],           // main building body top=3
+  [-5, 0.6, -15, 3, 1.2, 3],        // approach L1
+  [ 5, 0.6, -15, 3, 1.2, 3],        // approach L1
+  [-5, 1.8, -17, 3, 1.2, 3],        // approach L2 → jump to roof at 3
+
+  // ─── SOUTH BUNKER ──────────────────────────────────────────────────
+  [0, 1.5,  18, 8, 3, 6],
+  [-5, 0.6,  15, 3, 1.2, 3],
+  [ 5, 0.6,  15, 3, 1.2, 3],
+  [ 5, 1.8,  17, 3, 1.2, 3],
+
+  // ─── WEST CORRIDOR (elevated walkway, top=2.4) ─────────────────────
+  [-14, 1.8, 0, 2, 1.2, 10],        // walkway platform
+  [-14, 0.6, 5, 2, 1.2, 2],         // step up S
+  [-14, 0.6,-5, 2, 1.2, 2],         // step up N
+
+  // ─── EAST CORRIDOR ─────────────────────────────────────────────────
+  [14, 1.8, 0, 2, 1.2, 10],
+  [14, 0.6, 5, 2, 1.2, 2],
+  [14, 0.6,-5, 2, 1.2, 2],
+
+  // ─── GROUND COVER (low walls, h=1.2, can't climb but blocks bullets) ─
+  [-8,  0.6, -8, 1, 1.2, 4],
+  [ 8,  0.6, -8, 1, 1.2, 4],
+  [-8,  0.6,  8, 1, 1.2, 4],
+  [ 8,  0.6,  8, 1, 1.2, 4],
+  [0,   0.6, -20, 4, 1.2, 1],
+  [0,   0.6,  20, 4, 1.2, 1],
+  [-20, 0.6,  0, 1, 1.2, 4],
+  [ 20, 0.6,  0, 1, 1.2, 4],
+
+  // ─── SCATTERED CRATES ──────────────────────────────────────────────
+  [-10, 0.5,  2, 1.5, 1, 1.5],
+  [ 10, 0.5, -2, 1.5, 1, 1.5],
+  [-3,  0.5,-10, 1.5, 1, 1.5],
+  [ 3,  0.5, 10, 1.5, 1, 1.5],
 ];
 
-export const ARENA_BOXES = BOX_POSITIONS.map(([x, y, z, w, h, d]) => ({
-  position: new THREE.Vector3(x, y, z),
+// Build collision boxes — proper center-based min/max for all axes
+export const ARENA_BOXES = MAP_OBJECTS.map(([cx, cy, cz, w, h, d]) => ({
+  position: new THREE.Vector3(cx, cy, cz),
   size: new THREE.Vector3(w, h, d),
-  min: new THREE.Vector3(x - w / 2, 0, z - d / 2),
-  max: new THREE.Vector3(x + w / 2, h, z + d / 2),
+  min: new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+  max: new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2),
 }));
 
-export const ARENA_BOUNDS = 24;
+export const ARENA_BOUNDS = 27;
 
 function FlickerLight({
-  position,
-  color,
-  baseIntensity,
-  flickerSpeed = 1,
+  position, color, baseIntensity, flickerSpeed = 1,
 }: {
-  position: [number, number, number];
-  color: string;
-  baseIntensity: number;
-  flickerSpeed?: number;
+  position: [number, number, number]; color: string; baseIntensity: number; flickerSpeed?: number;
 }) {
   const ref = useRef<THREE.PointLight>(null!);
   const offset = useRef(Math.random() * 100);
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const t = clock.getElapsedTime() * flickerSpeed + offset.current;
-    const flicker = Math.sin(t * 3.7) * 0.08 + Math.sin(t * 11.3) * 0.04;
-    ref.current.intensity = baseIntensity + flicker;
+    ref.current.intensity = baseIntensity + Math.sin(t * 3.7) * 0.08 + Math.sin(t * 11.3) * 0.04;
   });
-  return (
-    <pointLight
-      ref={ref}
-      position={position}
-      color={color}
-      intensity={baseIntensity}
-      distance={14}
-      decay={2}
-    />
-  );
-}
-
-function HangingLight({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.4, 0.14, 0.4]} />
-        <meshStandardMaterial color="#222" metalness={0.8} roughness={0.2} emissive="#ffee88" emissiveIntensity={1.2} />
-      </mesh>
-      <mesh position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 0.25, 4]} />
-        <meshStandardMaterial color="#444" metalness={0.9} />
-      </mesh>
-      <pointLight color="#ffe8aa" intensity={3.5} distance={18} decay={2} />
-    </group>
-  );
-}
-
-function WallLamp({ position, color = "#ff2200" }: { position: [number, number, number]; color?: string }) {
-  const ref = useRef<THREE.PointLight>(null!);
-  const offset = useRef(Math.random() * 100);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    const t = clock.getElapsedTime() * 2 + offset.current;
-    ref.current.intensity = 1.5 + Math.sin(t * 4.1) * 0.2 + Math.sin(t * 7.3) * 0.1;
-  });
-  return (
-    <group position={position}>
-      <mesh>
-        <boxGeometry args={[0.2, 0.35, 0.12]} />
-        <meshStandardMaterial color="#1a1a1a" metalness={0.7} roughness={0.3} emissive={color} emissiveIntensity={1.2} />
-      </mesh>
-      <pointLight ref={ref} color={color} intensity={1.5} distance={10} decay={2} />
-    </group>
-  );
-}
-
-function DangerStripe({ x, z, angle = 0 }: { x: number; z: number; angle?: number }) {
-  return (
-    <mesh position={[x, 0.005, z]} rotation={[-Math.PI / 2, 0, angle]}>
-      <planeGeometry args={[6, 0.18]} />
-      <meshBasicMaterial color="#ffcc00" transparent opacity={0.18} />
-    </mesh>
-  );
+  return <pointLight ref={ref} position={position} color={color} intensity={baseIntensity} distance={18} decay={2} />;
 }
 
 export default function Arena() {
-  const floorMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0x2a2e2a,
-        roughness: 0.92,
-        metalness: 0.05,
-      }),
-    [],
-  );
-
-  const wallMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0x2e2e3a,
-        roughness: 0.8,
-        metalness: 0.2,
-      }),
-    [],
-  );
-
-  const crateMatBrown = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0x4a3520,
-        roughness: 0.8,
-        metalness: 0.1,
-      }),
-    [],
-  );
-
-  const crateMatMetal = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0x2a3040,
-        roughness: 0.5,
-        metalness: 0.5,
-      }),
-    [],
-  );
-
-  const crateMatConcrete = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: 0x383a36,
-        roughness: 0.92,
-        metalness: 0.03,
-      }),
-    [],
-  );
-
-  const coverMats = [crateMatBrown, crateMatMetal, crateMatConcrete];
-
   const wallGeom = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+
+  const floorMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x3a4030, roughness: 0.95, metalness: 0.02,
+  }), []);
+
+  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x3e3830, roughness: 0.85, metalness: 0.1,
+  }), []);
+
+  const towerMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x2a3228, roughness: 0.75, metalness: 0.18,
+  }), []);
+
+  const stepMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x4a4238, roughness: 0.88, metalness: 0.08,
+  }), []);
+
+  const walkMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x282e26, roughness: 0.78, metalness: 0.22,
+  }), []);
+
+  const coverMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: 0x4e3c28, roughness: 0.85, metalness: 0.05,
+  }), []);
+
+  const getMat = (i: number) => {
+    if (i < 4) return wallMat;       // outer walls
+    if (i < 8) return towerMat;      // corner towers
+    if (i < 20) return stepMat;      // staircases
+    if (i < 24) return towerMat;     // center platform
+    if (i < 28) return stepMat;      // center steps
+    if (i < 34) return walkMat;      // bunkers
+    if (i < 38) return walkMat;      // corridors
+    return coverMat;                 // cover + crates
+  };
 
   return (
     <group>
-      {/* Floor */}
+      {/* ─── SKY ─── */}
+      <color attach="background" args={["#1a2232"]} />
+      <fog attach="fog" args={["#1a2232", 40, 100]} />
+
+      {/* ─── GROUND ─── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[52, 52]} />
+        <planeGeometry args={[60, 60, 40, 40]} />
         <primitive object={floorMat} />
       </mesh>
 
-      {/* Subtle floor grid */}
+      {/* Ground detail pattern */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]}>
-        <planeGeometry args={[50, 50, 24, 24]} />
-        <meshBasicMaterial color={0x1a1a22} wireframe transparent opacity={0.08} />
+        <planeGeometry args={[58, 58, 28, 28]} />
+        <meshBasicMaterial color={0x252c22} wireframe transparent opacity={0.06} />
       </mesh>
 
-      {/* Danger stripes */}
-      <DangerStripe x={0} z={0} />
-      <DangerStripe x={0} z={0} angle={Math.PI / 2} />
-      <DangerStripe x={10} z={0} />
-      <DangerStripe x={-10} z={0} />
-      <DangerStripe x={0} z={10} angle={Math.PI / 2} />
-      <DangerStripe x={0} z={-10} angle={Math.PI / 2} />
-
-      {/* Center circle marker */}
+      {/* Center marker */}
       <mesh position={[0, 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.8, 2.0, 32]} />
-        <meshBasicMaterial color="#ff2200" transparent opacity={0.22} />
+        <ringGeometry args={[2.0, 2.3, 32]} />
+        <meshBasicMaterial color="#ff4400" transparent opacity={0.3} />
       </mesh>
 
-      {/* Outer walls - thick, dark */}
-      <mesh geometry={wallGeom} material={wallMat} position={[0, 3, -25]} scale={[52, 6, 1.2]} receiveShadow castShadow />
-      <mesh geometry={wallGeom} material={wallMat} position={[0, 3, 25]} scale={[52, 6, 1.2]} receiveShadow castShadow />
-      <mesh geometry={wallGeom} material={wallMat} position={[25, 3, 0]} scale={[1.2, 6, 52]} receiveShadow castShadow />
-      <mesh geometry={wallGeom} material={wallMat} position={[-25, 3, 0]} scale={[1.2, 6, 52]} receiveShadow castShadow />
-
-      {/* Ceiling */}
-      <mesh geometry={wallGeom} material={wallMat} position={[0, 6, 0]} scale={[52, 0.3, 52]} />
-
-      {/* Cover objects */}
-      {BOX_POSITIONS.map(([x, y, z, w, h, d], i) => (
+      {/* ─── ALL MAP OBJECTS ─── */}
+      {MAP_OBJECTS.map(([cx, cy, cz, w, h, d], i) => (
         <group key={i}>
           <mesh
             geometry={wallGeom}
-            material={coverMats[i % coverMats.length]}
-            position={[x, y, z]}
+            material={getMat(i)}
+            position={[cx, cy, cz]}
             scale={[w, h, d]}
             castShadow
             receiveShadow
           />
-          {/* Edge highlight on top of covers */}
-          <mesh
-            geometry={wallGeom}
-            position={[x, y * 2 + h / 2 - 0.03, z]}
-            scale={[w, 0.05, d]}
-          >
-            <meshStandardMaterial color="#1a1a22" metalness={0.7} roughness={0.3} emissive="#222233" emissiveIntensity={0.3} />
-          </mesh>
+          {/* Top edge accent on climbable platforms */}
+          {i >= 8 && i < 44 && (
+            <mesh
+              position={[cx, cy + h / 2, cz]}
+              scale={[w + 0.04, 0.06, d + 0.04]}
+            >
+              <boxGeometry />
+              <meshStandardMaterial color="#3a4a38" metalness={0.5} roughness={0.4} emissive="#2a3a28" emissiveIntensity={0.2} />
+            </mesh>
+          )}
         </group>
       ))}
 
-      {/* LIGHTING - Bright industrial arena */}
-      <ambientLight intensity={0.55} color="#aabbcc" />
+      {/* ─── LIGHTING ─── */}
+      <ambientLight intensity={0.45} color="#8899aa" />
 
-      {/* Main overhead sun-like directional */}
+      {/* Moon-like directional (cool outdoor light) */}
       <directionalLight
-        position={[5, 22, 8]}
-        intensity={1.6}
-        color="#ffffff"
+        position={[10, 35, 15]}
+        intensity={1.4}
+        color="#ddeeff"
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-near={0.1}
-        shadow-camera-far={80}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
-        shadow-bias={-0.001}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={0.5}
+        shadow-camera-far={120}
+        shadow-camera-left={-35}
+        shadow-camera-right={35}
+        shadow-camera-top={35}
+        shadow-camera-bottom={-35}
+        shadow-bias={-0.0008}
       />
 
-      {/* Fill light from opposite side */}
-      <directionalLight position={[-8, 14, -10]} intensity={0.8} color="#cce0ff" />
+      {/* Warm fill from opposite side */}
+      <directionalLight position={[-12, 18, -18]} intensity={0.5} color="#ffcc88" />
 
-      {/* Hanging industrial lights - warm bright pools */}
-      <HangingLight position={[0, 5.6, 0]} />
-      <HangingLight position={[10, 5.6, 10]} />
-      <HangingLight position={[-10, 5.6, 10]} />
-      <HangingLight position={[10, 5.6, -10]} />
-      <HangingLight position={[-10, 5.6, -10]} />
-      <HangingLight position={[0, 5.6, 14]} />
-      <HangingLight position={[0, 5.6, -14]} />
-      <HangingLight position={[14, 5.6, 0]} />
-      <HangingLight position={[-14, 5.6, 0]} />
+      {/* Tower spotlights */}
+      <FlickerLight position={[-22, 6, -22]} color="#4488ff" baseIntensity={2.2} flickerSpeed={0.4} />
+      <FlickerLight position={[ 22, 6, -22]} color="#4488ff" baseIntensity={2.2} flickerSpeed={0.6} />
+      <FlickerLight position={[-22, 6,  22]} color="#4488ff" baseIntensity={2.2} flickerSpeed={0.5} />
+      <FlickerLight position={[ 22, 6,  22]} color="#4488ff" baseIntensity={2.2} flickerSpeed={0.7} />
 
-      {/* Colored accent wall lamps */}
-      <WallLamp position={[0, 3.2, -24.4]} color="#ff4400" />
-      <WallLamp position={[0, 3.2, 24.4]} color="#ff4400" />
-      <WallLamp position={[24.4, 3.2, 0]} color="#ff4400" />
-      <WallLamp position={[-24.4, 3.2, 0]} color="#ff4400" />
-      <WallLamp position={[12, 3.2, -24.4]} color="#ff4400" />
-      <WallLamp position={[-12, 3.2, 24.4]} color="#ff4400" />
+      {/* Center combat zone light */}
+      <FlickerLight position={[0, 5, 0]} color="#ff6622" baseIntensity={1.8} flickerSpeed={1.0} />
 
-      {/* Blue/purple corner accent lights */}
-      <FlickerLight position={[22, 2, 22]} color="#4466ff" baseIntensity={1.8} flickerSpeed={0.5} />
-      <FlickerLight position={[-22, 2, -22]} color="#4466ff" baseIntensity={1.8} flickerSpeed={0.7} />
-      <FlickerLight position={[22, 2, -22]} color="#6633ff" baseIntensity={1.5} flickerSpeed={0.4} />
-      <FlickerLight position={[-22, 2, 22]} color="#6633ff" baseIntensity={1.5} flickerSpeed={0.8} />
+      {/* North/South area lights */}
+      <pointLight position={[0, 5, -18]} color="#ffe8aa" intensity={3} distance={20} decay={2} />
+      <pointLight position={[0, 5,  18]} color="#ffe8aa" intensity={3} distance={20} decay={2} />
+      <pointLight position={[-14, 4, 0]} color="#88ccff" intensity={2} distance={14} decay={2} />
+      <pointLight position={[ 14, 4, 0]} color="#88ccff" intensity={2} distance={14} decay={2} />
 
-      {/* Center pulsing accent */}
-      <FlickerLight position={[0, 4, 0]} color="#ff3300" baseIntensity={1.4} flickerSpeed={1.2} />
+      {/* Stars (simple instanced points) */}
+      {Array.from({ length: 36 }).map((_, i) => {
+        const angle = (i / 36) * Math.PI * 2;
+        const r = 46 + (i % 4) * 4;
+        const h2 = 22 + (i % 5) * 5;
+        return (
+          <mesh key={i} position={[Math.cos(angle) * r, h2, Math.sin(angle) * r]}>
+            <sphereGeometry args={[0.15, 3, 3]} />
+            <meshBasicMaterial color="#e8eeff" />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
