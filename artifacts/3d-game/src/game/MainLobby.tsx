@@ -33,6 +33,7 @@ export default function MainLobby() {
   const selectedGun = useGameStore((s) => s.selectedGun);
   const setSelectedGun = useGameStore((s) => s.setSelectedGun);
   const resetMatchStats = useGameStore((s) => s.resetMatchStats);
+  const myRegion = useGameStore((s) => s.myRegion);
 
   const [tab, setTab] = useState<LobbyTab>("play");
   const [newRoomName, setNewRoomName] = useState("");
