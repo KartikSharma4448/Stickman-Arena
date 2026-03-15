@@ -12,9 +12,9 @@ const SEND_RATE = 1000 / 20;
 const JUMP_FORCE = 9;
 const GRAVITY = -22;
 
-const CAM_DIST = 4.2;
-const CAM_HEIGHT = 2.0;
-const CAM_SIDE = 0.5;
+const CAM_DIST = 3.8;
+const CAM_HEIGHT = 1.6;
+const CAM_SIDE = -0.45; // negative = camera left of player → character appears on right (PUBG style)
 
 // Gun barrel offset from player center in local character space
 // local (right=+X, up=+Y, forward=-Z)
@@ -28,7 +28,10 @@ interface Props {
   onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void;
 }
 
-/** Converts character-local offset to world position given player pos + yaw */
+/**
+ * Converts character-local offset to world position given player pos + yaw.
+ * Three.js Y-rotation matrix: world_x = lx*cos + lz*sin, world_z = -lx*sin + lz*cos
+ */
 function localToWorld(
   pos: THREE.Vector3,
   yaw: number,
@@ -39,7 +42,7 @@ function localToWorld(
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);
   return new THREE.Vector3(
-    pos.x + lx * cosY - lz * sinY,
+    pos.x + lx * cosY + lz * sinY,
     pos.y + ly,
     pos.z - lx * sinY + lz * cosY,
   );
@@ -510,18 +513,17 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
     }
 
-    // --- THIRD-PERSON CAMERA (PUBG) ---
+    // --- THIRD-PERSON CAMERA (PUBG style) ---
+    // Camera sits behind-left of player so character appears right of crosshair
     const camX = posRef.current.x + sinY * CAM_DIST + cosY * CAM_SIDE;
     const camY = posRef.current.y + CAM_HEIGHT;
     const camZ = posRef.current.z + cosY * CAM_DIST - sinY * CAM_SIDE;
     camera.position.set(camX, camY, camZ);
 
-    const lookDist = 7.5;
-    const pitch = pitchRef.current;
-    const lookX = posRef.current.x - sinY * lookDist;
-    const lookY = posRef.current.y + 1.15 + Math.sin(pitch) * 3;
-    const lookZ = posRef.current.z - cosY * lookDist;
-    camera.lookAt(lookX, lookY, lookZ);
+    // Use direct Euler rotation — crosshair points FORWARD from camera, NOT at player head
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = yawRef.current;
+    camera.rotation.x = pitchRef.current;
 
     // Network send
     const now = Date.now();
