@@ -5,7 +5,8 @@ import { useGameStore } from "./store";
 import { getSocket } from "./socket";
 import { ARENA_BOUNDS, ARENA_BOXES } from "./Arena";
 import GunModel from "./GunModel";
-import { touchState, touchJumpPending, clearTouchJump, touchScopeActive } from "./TouchControls";
+import { touchState, touchJumpPending, clearTouchJump, touchScopeActive, touchShootPending, clearTouchShoot } from "./TouchControls";
+import { GUN_CONFIG } from "./gunConfig";
 
 const MOVE_SPEED = 7;
 const PLAYER_RADIUS = 0.35;
@@ -318,13 +319,8 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const setIsScoped = useGameStore((s) => s.setIsScoped);
 
   const isScopedRef = useRef(false);
-
-  const fireRate: Record<string, number> = {
-    "AK-47": 110,
-    "SMG": 65,
-    "Sniper": 850,
-    "Shotgun": 520,
-  };
+  const mouseHeldRef = useRef(false);
+  const singleShotFiredRef = useRef(false);
 
   useEffect(() => {
     posRef.current.copy(spawnPos);
@@ -339,13 +335,11 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         velYRef.current = JUMP_FORCE;
         onGroundRef.current = false;
       }
-      if (down && e.code === "KeyR" && !isReloadingRef.current && ammo < 30) {
+      const cfg = GUN_CONFIG[selectedGun] ?? GUN_CONFIG["AK-47"];
+      if (down && e.code === "KeyR" && !isReloadingRef.current && ammo < cfg.ammoCapacity) {
         isReloadingRef.current = true;
         setIsReloading(true);
-        setTimeout(() => {
-          reload();
-          isReloadingRef.current = false;
-        }, 1800);
+        setTimeout(() => { reload(); isReloadingRef.current = false; }, cfg.reloadTime);
       }
     };
     const kd = (e: KeyboardEvent) => onKey(e, true);
@@ -405,6 +399,22 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     };
   }, [setIsScoped]);
 
+  // Track left mouse button held (for auto-fire in useFrame)
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (e.button === 0) { mouseHeldRef.current = true; singleShotFiredRef.current = false; }
+    };
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 0) { mouseHeldRef.current = false; singleShotFiredRef.current = false; }
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
   const checkCollision = useCallback((pos: THREE.Vector3): boolean => {
     if (Math.abs(pos.x) > ARENA_BOUNDS - PLAYER_RADIUS) return true;
     if (Math.abs(pos.z) > ARENA_BOUNDS - PLAYER_RADIUS) return true;
@@ -423,63 +433,7 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     return false;
   }, []);
 
-  useEffect(() => {
-    const rate = fireRate[selectedGun] ?? 150;
-    const onMouseDown = (e: MouseEvent) => {
-      if (e.button !== 0) return;
-      if (document.pointerLockElement !== document.body) return;
-      if (isDead || isReloadingRef.current) return;
-
-      if (ammo <= 0) {
-        if (!isReloadingRef.current) {
-          isReloadingRef.current = true;
-          setIsReloading(true);
-          setTimeout(() => { reload(); isReloadingRef.current = false; }, 1800);
-        }
-        return;
-      }
-
-      const now = Date.now();
-      if (now - lastShotRef.current < rate) return;
-      lastShotRef.current = now;
-
-      isShootingRef.current = true;
-      setTimeout(() => { isShootingRef.current = false; }, 80);
-
-      // Bullet direction = exactly where crosshair (camera center) aims
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      dir.normalize();
-
-      // Visual origin = gun barrel tip (for muzzle flash placement)
-      const yaw = yawRef.current;
-      const barrelTip = localToWorld(
-        posRef.current,
-        yaw,
-        GUN_LOCAL_X,
-        GUN_LOCAL_Y + 0.05,
-        GUN_LOCAL_Z - BARREL_EXTRA,
-      );
-
-      // For accuracy: bullet travels from camera's aim point, not barrel offset
-      // This ensures crosshair = bullet path (PUBG behavior)
-      const aimOrigin = camera.position.clone().addScaledVector(dir, 1.2);
-
-      recordShot(false);
-      onShoot(aimOrigin, dir);
-
-      getSocket().emit("shoot", {
-        originX: barrelTip.x,
-        originY: barrelTip.y,
-        originZ: barrelTip.z,
-        dirX: dir.x,
-        dirY: dir.y,
-        dirZ: dir.z,
-      });
-    };
-    window.addEventListener("mousedown", onMouseDown);
-    return () => window.removeEventListener("mousedown", onMouseDown);
-  }, [isDead, onShoot, ammo, reload, setIsReloading, recordShot, selectedGun]);
+  // Shooting is handled in useFrame below (supports auto + single fire)
 
   useEffect(() => {
     const socket = getSocket();
@@ -617,6 +571,84 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       : FOV_DEFAULT;
     cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 1 - Math.exp(-14 * delta));
     cam.updateProjectionMatrix();
+
+    // ─── SHOOTING SYSTEM (auto + single fire) ───────────────────────────
+    const cfg = GUN_CONFIG[selectedGun] ?? GUN_CONFIG["AK-47"];
+    const nowMs = Date.now();
+
+    // Determine trigger intent (PC mouse OR mobile FIRE button)
+    const pcTrigger = mouseHeldRef.current && document.pointerLockElement === document.body;
+    const mobileTrigger = touchShootPending;
+    const triggerActive = pcTrigger || mobileTrigger;
+    if (mobileTrigger) clearTouchShoot();
+
+    // For single-shot guns: only fire ONCE per trigger press
+    const wantFire = triggerActive && !isDead && !isReloadingRef.current
+      && (cfg.auto || !singleShotFiredRef.current);
+
+    // Auto-reload when empty
+    if (triggerActive && ammo <= 0 && !isReloadingRef.current) {
+      isReloadingRef.current = true;
+      setIsReloading(true);
+      setTimeout(() => { reload(); isReloadingRef.current = false; }, cfg.reloadTime);
+    }
+
+    // Reset single-shot flag when trigger released
+    if (!triggerActive) singleShotFiredRef.current = false;
+
+    if (wantFire && ammo > 0 && nowMs - lastShotRef.current >= cfg.fireRate) {
+      lastShotRef.current = nowMs;
+      singleShotFiredRef.current = true;
+
+      isShootingRef.current = true;
+      setTimeout(() => { isShootingRef.current = false; }, 80);
+
+      // Base aim direction from camera center
+      const baseDir = new THREE.Vector3();
+      camera.getWorldDirection(baseDir);
+      baseDir.normalize();
+
+      // Accurate origin for server hit detection
+      const aimOrigin = camera.position.clone().addScaledVector(baseDir, 0.3);
+
+      // Visual muzzle flash origin
+      const barrelTip = localToWorld(
+        posRef.current, yawRef.current,
+        GUN_LOCAL_X, GUN_LOCAL_Y + 0.05, GUN_LOCAL_Z - BARREL_EXTRA,
+      );
+
+      // Build pellet directions with spread
+      const pellets: Array<{ dirX: number; dirY: number; dirZ: number }> = [];
+      for (let pi = 0; pi < cfg.pellets; pi++) {
+        const d = baseDir.clone();
+        if (cfg.spreadRad > 0) {
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.random() * cfg.spreadRad;
+          const right = new THREE.Vector3(0, 1, 0).cross(d).normalize();
+          if (right.lengthSq() < 0.001) right.set(1, 0, 0);
+          const up2 = new THREE.Vector3().crossVectors(right, d).normalize();
+          d.addScaledVector(right, Math.sin(phi) * Math.cos(theta));
+          d.addScaledVector(up2, Math.sin(phi) * Math.sin(theta));
+          d.normalize();
+        }
+        pellets.push({ dirX: d.x, dirY: d.y, dirZ: d.z });
+      }
+
+      // Consume ammo + record stat
+      recordShot(false);
+
+      // Local visual effect (muzzle + bullet trail)
+      onShoot(barrelTip, new THREE.Vector3(pellets[0].dirX, pellets[0].dirY, pellets[0].dirZ));
+
+      // Network: send to server with gun type + pellets
+      getSocket().emit("shoot", {
+        originX: aimOrigin.x,
+        originY: aimOrigin.y,
+        originZ: aimOrigin.z,
+        gunType: selectedGun,
+        pellets,
+      });
+    }
 
     // Network send
     const now = Date.now();

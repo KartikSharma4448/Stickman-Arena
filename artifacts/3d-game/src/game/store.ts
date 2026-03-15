@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { GUN_CONFIG } from "./gunConfig";
 
 export interface RemotePlayer {
   id: string;
@@ -221,7 +222,12 @@ export const useGameStore = create<GameState>((set) => ({
   setLatency: (latency) => set({ latency }),
   setMatchResult: (matchResult) => set({ matchResult }),
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
-  setSelectedGun: (selectedGun) => set({ selectedGun }),
+  setSelectedGun: (selectedGun) => set({
+    selectedGun,
+    ammo: GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30,
+    maxAmmo: GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30,
+    isReloading: false,
+  }),
   setIsScoped: (isScoped) => set({ isScoped }),
 
   recordShot: (hit) =>

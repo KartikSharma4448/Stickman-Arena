@@ -1,6 +1,15 @@
 import { Server as HttpServer } from "http";
 import { Server as SocketServer } from "socket.io";
 
+// ─── Gun damage table (keep in sync with client gunConfig.ts) ─────────────
+const GUN_DAMAGE: Record<string, { body: number; head: number; range: number }> = {
+  "AK-47":   { body: 32,  head: 80,  range: 120 },
+  "SMG":     { body: 18,  head: 48,  range: 60  },
+  "Sniper":  { body: 85,  head: 150, range: 300 },
+  "Shotgun": { body: 14,  head: 28,  range: 28  }, // per pellet
+  "Pistol":  { body: 28,  head: 70,  range: 80  },
+};
+
 interface Player {
   id: string;
   name: string;
@@ -178,65 +187,67 @@ export function initGameServer(httpServer: HttpServer) {
         originX: number;
         originY: number;
         originZ: number;
-        dirX: number;
-        dirY: number;
-        dirZ: number;
+        gunType?: string;
+        pellets: Array<{ dirX: number; dirY: number; dirZ: number }>;
       }) => {
         if (!player.roomId) return;
         const room = rooms.get(player.roomId);
         if (!room) return;
 
-        const ox = data.originX,
-          oy = data.originY,
-          oz = data.originZ;
-        const dx = data.dirX,
-          dy = data.dirY,
-          dz = data.dirZ;
+        const ox = data.originX, oy = data.originY, oz = data.originZ;
+        const gunType = data.gunType ?? "AK-47";
+        const gunDmg = GUN_DAMAGE[gunType] ?? GUN_DAMAGE["AK-47"];
+        const pellets = Array.isArray(data.pellets) && data.pellets.length > 0
+          ? data.pellets
+          : [{ dirX: 0, dirY: 0, dirZ: -1 }]; // fallback
 
-        let hitPlayerId: string | null = null;
-        let hitType: "body" | "head" = "body";
-        let minDist = Infinity;
-
-        for (const [pid, target] of room.players) {
-          if (pid === socket.id) continue;
-          if (target.health <= 0) continue;
-
-          const result = rayCastHit(
-            ox,
-            oy,
-            oz,
-            dx,
-            dy,
-            dz,
-            target.x,
-            target.y,
-            target.z,
-          );
-          if (result && result.dist < minDist) {
-            minDist = result.dist;
-            hitPlayerId = pid;
-            hitType = result.isHead ? "head" : "body";
-          }
-        }
-
+        // Broadcast the first pellet for visual effects
+        const firstPellet = pellets[0];
         const shootEvent = {
           shooterId: socket.id,
-          originX: ox,
-          originY: oy,
-          originZ: oz,
-          dirX: dx,
-          dirY: dy,
-          dirZ: dz,
-          hitPlayerId,
-          hitType,
+          originX: ox, originY: oy, originZ: oz,
+          dirX: firstPellet.dirX, dirY: firstPellet.dirY, dirZ: firstPellet.dirZ,
+          hitPlayerId: null as string | null,
+          hitType: "body" as "body" | "head",
+          gunType,
         };
         io.to(player.roomId).emit("shoot_event", shootEvent);
 
-        if (hitPlayerId) {
+        // Process every pellet for hit detection
+        const totalDamageByPlayer = new Map<string, number>();
+        let lastHitType: "body" | "head" = "body";
+
+        for (const pellet of pellets) {
+          const dx = pellet.dirX, dy = pellet.dirY, dz = pellet.dirZ;
+          let hitPlayerId: string | null = null;
+          let hitType: "body" | "head" = "body";
+          let minDist = Infinity;
+
+          for (const [pid, target] of room.players) {
+            if (pid === socket.id) continue;
+            if (target.health <= 0) continue;
+
+            const result = rayCastHit(ox, oy, oz, dx, dy, dz, target.x, target.y, target.z, gunDmg.range);
+            if (result && result.dist < minDist) {
+              minDist = result.dist;
+              hitPlayerId = pid;
+              hitType = result.isHead ? "head" : "body";
+            }
+          }
+
+          if (hitPlayerId) {
+            const dmg = hitType === "head" ? gunDmg.head : gunDmg.body;
+            totalDamageByPlayer.set(hitPlayerId, (totalDamageByPlayer.get(hitPlayerId) ?? 0) + dmg);
+            lastHitType = hitType;
+          }
+        }
+
+        // Apply accumulated damage
+        for (const [hitPlayerId, totalDmg] of totalDamageByPlayer) {
           const target = room.players.get(hitPlayerId);
           if (target) {
-            const dmg = hitType === "head" ? 100 : 25;
-            target.health = Math.max(0, target.health - dmg);
+            const hitType = lastHitType;
+            target.health = Math.max(0, target.health - totalDmg);
 
             if (target.health <= 0) {
               player.kills++;
