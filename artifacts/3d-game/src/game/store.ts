@@ -58,9 +58,12 @@ interface GameState {
   myLevel: number;
   myXp: number;
   myRegion: string;
+  coins: number;
+  ownedItems: string[];
   health: number;
   ammo: number;
   maxAmmo: number;
+  isReloading: boolean;
   kills: number;
   deaths: number;
   isDead: boolean;
@@ -87,6 +90,7 @@ interface GameState {
   setMyRegion: (r: string) => void;
   setHealth: (h: number) => void;
   setAmmo: (a: number) => void;
+  setIsReloading: (r: boolean) => void;
   reload: () => void;
   addKill: () => void;
   addDeath: () => void;
@@ -110,6 +114,8 @@ interface GameState {
   recordShot: (hit: boolean) => void;
   resetMatchStats: () => void;
   addXp: (amount: number) => void;
+  addCoins: (amount: number) => void;
+  buyItem: (itemId: string, price: number) => void;
 }
 
 let killFeedIdCounter = 0;
@@ -122,9 +128,12 @@ export const useGameStore = create<GameState>((set) => ({
   myLevel: 1,
   myXp: 0,
   myRegion: "Asia",
+  coins: 500,
+  ownedItems: [],
   health: 100,
   ammo: 30,
   maxAmmo: 30,
+  isReloading: false,
   kills: 0,
   deaths: 0,
   isDead: false,
@@ -151,16 +160,15 @@ export const useGameStore = create<GameState>((set) => ({
   setMyRegion: (myRegion) => set({ myRegion }),
   setHealth: (health) => set({ health }),
   setAmmo: (ammo) => set({ ammo }),
-  reload: () => set((s) => ({ ammo: s.maxAmmo })),
-  addKill: () => set((s) => ({ kills: s.kills + 1, hitShots: s.hitShots + 1 })),
+  setIsReloading: (isReloading) => set({ isReloading }),
+  reload: () => set((s) => ({ ammo: s.maxAmmo, isReloading: false })),
+  addKill: () => set((s) => ({ kills: s.kills + 1, coins: s.coins + 10 })),
   addDeath: () => set((s) => ({ deaths: s.deaths + 1 })),
   setIsDead: (isDead) => set({ isDead }),
   setRespawnCountdown: (respawnCountdown) => set({ respawnCountdown }),
 
   updateRemotePlayer: (p) =>
-    set((s) => ({
-      remotePlayers: { ...s.remotePlayers, [p.id]: p },
-    })),
+    set((s) => ({ remotePlayers: { ...s.remotePlayers, [p.id]: p } })),
 
   updateRemotePlayers: (ps) =>
     set((s) => {
@@ -220,7 +228,7 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   resetMatchStats: () =>
-    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30 }),
+    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30, isReloading: false }),
 
   addXp: (amount) =>
     set((s) => {
@@ -228,5 +236,13 @@ export const useGameStore = create<GameState>((set) => ({
       const xpPerLevel = 500;
       const newLevel = Math.floor(newXp / xpPerLevel) + 1;
       return { myXp: newXp, myLevel: newLevel };
+    }),
+
+  addCoins: (amount) => set((s) => ({ coins: s.coins + amount })),
+
+  buyItem: (itemId, price) =>
+    set((s) => {
+      if (s.coins < price || s.ownedItems.includes(itemId)) return s;
+      return { coins: s.coins - price, ownedItems: [...s.ownedItems, itemId] };
     }),
 }));
