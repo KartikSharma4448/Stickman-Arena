@@ -1,0 +1,203 @@
+🎮 APP WORKFLOW (Real Execution Flow)
+1️⃣ App Click → Splash / Boot Load
+
+Goal: User ko wait feel nahi hona chahiye.
+
+Flow:
+
+App icon click
+
+Splash screen (Game Logo + Loading bar)
+
+Background me:
+
+Server ping check
+
+Assets preload (gun / map / UI)
+
+Player saved data load
+
+Internet connectivity check
+
+Max time target: 2–3 seconds
+
+2️⃣ Login Screen
+
+Compulsory Things:
+
+Guest Login (FASTEST — very important)
+
+Google / Email Login
+
+Username input
+
+Region select (ping optimization)
+
+Background system:
+
+Player ID generate
+
+Cloud profile fetch
+
+Network handshake
+
+👉 Weak mistake: OTP login mat bana — FPS game me friction nahi chahiye.
+
+3️⃣ Main Lobby (Most Important Screen)
+
+This screen decides retention + engagement
+
+🎯 Lobby me compulsory sections:
+🔹 Play Button (Primary CTA)
+
+Quick Match
+
+Create Room
+
+Join Room
+
+🔹 Player Panel
+
+Username
+
+Level / Rank
+
+Coins / Currency
+
+K/D Ratio
+
+Ping indicator
+
+🔹 Loadout Section
+
+Gun select
+
+Skin select
+
+Sensitivity settings
+
+Control layout
+
+🔹 Social / Multiplayer
+
+Friends list
+
+Invite button
+
+Party system (team join)
+
+🔹 Progression
+
+Daily missions
+
+Rewards claim
+
+Battle pass (optional)
+
+🔹 Settings
+
+Graphics Low / Medium / High
+
+Sound
+
+Controls
+
+Network stats toggle
+
+4️⃣ Matchmaking Flow
+
+When user clicks Quick Match
+
+Searching players screen
+
+Server room assign
+
+Map loading screen
+
+Spawn countdown (3…2…1…)
+
+Background:
+
+Player sync
+
+Weapon preload
+
+Spawn point assign
+
+5️⃣ In-Game FPS Core HUD
+🎯 Compulsory HUD Elements:
+
+Crosshair (center)
+
+Ammo count
+
+Health bar
+
+Mini scoreboard (top)
+
+Kill feed (side)
+
+Ping / FPS stats
+
+Reload button (mobile)
+
+Fire button (mobile)
+
+6️⃣ Gameplay Loop
+
+Move
+
+Aim
+
+Shoot
+
+Kill
+
+Respawn
+
+System running:
+
+Hit detection (raycast)
+
+Damage calculation
+
+Kill update server sync
+
+Score update UI
+
+7️⃣ Match End Screen
+
+Winner / Team result
+
+Kills / Deaths / Accuracy
+
+XP gain
+
+Rewards
+
+Play Again button
+
+Return Lobby
+
+8️⃣ Return Lobby (Retention Loop)
+
+Reward animation
+
+Rank progress
+
+New mission unlock
+
+Invite friends prompt
+
+👉 Goal: User ko turant next match click karwana.
+
+⚡ Simple Technical Workflow Diagram (Mental Model)
+App Start
+ → Asset Load
+ → Login
+ → Lobby
+ → Matchmaking
+ → Game Spawn
+ → FPS Combat Loop
+ → Match Result
+ → Back to Lobby
