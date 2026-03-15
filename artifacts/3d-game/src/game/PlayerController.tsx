@@ -12,26 +12,23 @@ const SEND_RATE = 1000 / 20;
 const JUMP_FORCE = 9;
 const GRAVITY = -22;
 
-const CAM_DIST = 3.8;
-const CAM_HEIGHT = 1.6;
-const CAM_SIDE = -0.45; // negative = camera left of player → character appears on right (PUBG style)
+// PUBG-style third-person camera
+const CAM_DIST = 3.5;
+const CAM_HEIGHT = 1.55;
+const CAM_SIDE = -0.55; // camera left of player → character appears RIGHT (PUBG style)
+const CAM_SMOOTH = 12;  // camera lerp speed — higher = snappier
 
 // Gun barrel offset from player center in local character space
-// local (right=+X, up=+Y, forward=-Z)
 const GUN_LOCAL_X = 0.25;
 const GUN_LOCAL_Y = 0.95;
 const GUN_LOCAL_Z = -0.65;
-const BARREL_EXTRA = 0.85; // how far the barrel extends beyond GUN_LOCAL_Z
+const BARREL_EXTRA = 0.85;
 
 interface Props {
   spawnPos: THREE.Vector3;
   onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void;
 }
 
-/**
- * Converts character-local offset to world position given player pos + yaw.
- * Three.js Y-rotation matrix: world_x = lx*cos + lz*sin, world_z = -lx*sin + lz*cos
- */
 function localToWorld(
   pos: THREE.Vector3,
   yaw: number,
@@ -89,8 +86,7 @@ function LocalCharacter({
 
     if (bodyRef.current) bodyRef.current.position.y = 0.95 + bobY;
 
-    // Arms stay in combat grip — just slight sway while walking
-    const COMBAT_X = -1.25; // arms raised forward
+    const COMBAT_X = -1.25;
 
     if (leftArmRef.current) {
       leftArmRef.current.rotation.x = THREE.MathUtils.lerp(
@@ -112,11 +108,9 @@ function LocalCharacter({
       );
     }
 
-    // Legs swing as normal
     if (leftLegRef.current) leftLegRef.current.rotation.x = swing * 0.7;
     if (rightLegRef.current) rightLegRef.current.rotation.x = -swing * 0.7;
 
-    // Gun recoil / reload
     if (gunGroupRef.current) {
       if (isShootingRef.current) {
         gunGroupRef.current.position.z = THREE.MathUtils.lerp(
@@ -198,56 +192,47 @@ function LocalCharacter({
         <meshStandardMaterial color="#111" roughness={0.5} metalness={0.5} />
       </mesh>
 
-      {/* LEFT ARM — combat grip (forward raise) */}
+      {/* LEFT ARM */}
       <group ref={leftArmRef} position={[-0.26, 1.28, 0]} rotation={[-1.25, 0.12, 0.16]}>
-        {/* Upper arm */}
         <mesh position={[0, -0.18, 0]}>
           <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
         </mesh>
-        {/* Elbow joint */}
         <mesh position={[0, -0.38, 0]}>
           <sphereGeometry args={[0.075, 6, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
         </mesh>
-        {/* Lower arm */}
         <mesh position={[0, -0.52, 0]}>
           <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.75} />
         </mesh>
-        {/* Left hand (grips gun front) */}
         <mesh position={[0, -0.68, 0]}>
           <sphereGeometry args={[0.065, 6, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.7} />
         </mesh>
       </group>
 
-      {/* RIGHT ARM — trigger hand, slight less forward angle */}
+      {/* RIGHT ARM */}
       <group ref={rightArmRef} position={[0.28, 1.25, 0]} rotation={[-1.15, -0.08, -0.14]}>
-        {/* Upper arm */}
         <mesh position={[0, -0.18, 0]}>
           <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
         </mesh>
-        {/* Elbow joint */}
         <mesh position={[0, -0.38, 0]}>
           <sphereGeometry args={[0.075, 6, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
         </mesh>
-        {/* Lower arm */}
         <mesh position={[0, -0.52, 0]}>
           <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.75} />
         </mesh>
-        {/* Right hand */}
         <mesh position={[0, -0.68, 0]}>
           <sphereGeometry args={[0.065, 6, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.7} />
         </mesh>
       </group>
 
-      {/* GUN — attached to character (not arm) for precise world placement */}
-      {/* position = local offset matching right hand position, rotation.y = PI to flip barrel forward */}
+      {/* GUN */}
       <group
         ref={gunGroupRef}
         position={[GUN_LOCAL_X, GUN_LOCAL_Y, GUN_LOCAL_Z]}
@@ -292,7 +277,7 @@ function LocalCharacter({
         </mesh>
       </group>
 
-      {/* Soft shadow blob */}
+      {/* Shadow */}
       <mesh position={[0, -0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.42, 12]} />
         <meshBasicMaterial color="#000" transparent opacity={0.35} />
@@ -307,12 +292,16 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const posRef = useRef(spawnPos.clone());
   const velYRef = useRef(0);
   const onGroundRef = useRef(true);
-  const pitchRef = useRef(-0.2);
+  const pitchRef = useRef(-0.15);
   const yawRef = useRef(0);
   const keysRef = useRef<Record<string, boolean>>({});
   const lastSendRef = useRef(0);
   const seqRef = useRef(0);
   const lastShotRef = useRef(0);
+
+  // Smooth camera target
+  const camPosRef = useRef(new THREE.Vector3());
+  const camInitRef = useRef(false);
 
   const isMovingRef = useRef(false);
   const isShootingRef = useRef(false);
@@ -338,6 +327,7 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     posRef.current.copy(spawnPos);
     velYRef.current = 0;
     onGroundRef.current = true;
+    camInitRef.current = false;
   }, [spawnPos]);
 
   useEffect(() => {
@@ -369,10 +359,11 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (document.pointerLockElement !== document.body) return;
-      const sens = 0.0022;
+      const sens = 0.002;
       yawRef.current -= e.movementX * sens;
       pitchRef.current -= e.movementY * sens;
-      pitchRef.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitchRef.current));
+      // PUBG-like vertical range: can look up to ~80deg up/down
+      pitchRef.current = Math.max(-1.3, Math.min(0.7, pitchRef.current));
     };
     document.addEventListener("mousemove", onMove);
     return () => document.removeEventListener("mousemove", onMove);
@@ -427,7 +418,12 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       isShootingRef.current = true;
       setTimeout(() => { isShootingRef.current = false; }, 80);
 
-      // Shoot origin = gun barrel world position
+      // Bullet direction = exactly where crosshair (camera center) aims
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.normalize();
+
+      // Visual origin = gun barrel tip (for muzzle flash placement)
       const yaw = yawRef.current;
       const barrelTip = localToWorld(
         posRef.current,
@@ -437,13 +433,12 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         GUN_LOCAL_Z - BARREL_EXTRA,
       );
 
-      // Direction = where camera looks (crosshair aim)
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      dir.normalize();
+      // For accuracy: bullet travels from camera's aim point, not barrel offset
+      // This ensures crosshair = bullet path (PUBG behavior)
+      const aimOrigin = camera.position.clone().addScaledVector(dir, 1.2);
 
       recordShot(false);
-      onShoot(barrelTip, dir);
+      onShoot(aimOrigin, dir);
 
       getSocket().emit("shoot", {
         originX: barrelTip.x,
@@ -466,6 +461,7 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
       setHealth(data.health);
       isReloadingRef.current = false;
+      camInitRef.current = false;
     };
     const onDamage = (data: { health: number }) => {
       setHealth(data.health);
@@ -513,17 +509,31 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
     }
 
-    // --- THIRD-PERSON CAMERA (PUBG style) ---
-    // Camera sits behind-left of player so character appears right of crosshair
-    const camX = posRef.current.x + sinY * CAM_DIST + cosY * CAM_SIDE;
-    const camY = posRef.current.y + CAM_HEIGHT;
-    const camZ = posRef.current.z + cosY * CAM_DIST - sinY * CAM_SIDE;
-    camera.position.set(camX, camY, camZ);
+    // --- PUBG-STYLE THIRD-PERSON CAMERA with smooth lerp ---
+    // Target position: behind + right-side offset so player appears to the right of crosshair
+    const targetCamX = posRef.current.x + sinY * CAM_DIST + cosY * CAM_SIDE;
+    const targetCamY = posRef.current.y + CAM_HEIGHT;
+    const targetCamZ = posRef.current.z + cosY * CAM_DIST - sinY * CAM_SIDE;
 
-    // Use direct Euler rotation — crosshair points FORWARD from camera, NOT at player head
+    const targetPos = new THREE.Vector3(targetCamX, targetCamY, targetCamZ);
+
+    if (!camInitRef.current) {
+      // Instant snap on first frame / respawn
+      camPosRef.current.copy(targetPos);
+      camInitRef.current = true;
+    } else {
+      // Smooth follow — fast enough to feel responsive, smooth enough to avoid jitter
+      const lerpFactor = 1 - Math.exp(-CAM_SMOOTH * delta);
+      camPosRef.current.lerp(targetPos, lerpFactor);
+    }
+
+    camera.position.copy(camPosRef.current);
+
+    // Camera rotation: use YXZ order for FPS/TPS look (yaw then pitch)
     camera.rotation.order = "YXZ";
     camera.rotation.y = yawRef.current;
     camera.rotation.x = pitchRef.current;
+    camera.rotation.z = 0;
 
     // Network send
     const now = Date.now();
