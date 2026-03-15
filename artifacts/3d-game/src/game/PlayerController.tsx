@@ -15,8 +15,13 @@ const GRAVITY = -22;
 // PUBG-style third-person camera
 const CAM_DIST = 3.5;
 const CAM_HEIGHT = 1.55;
-const CAM_SIDE = -0.55; // camera left of player → character appears RIGHT (PUBG style)
-const CAM_SMOOTH = 12;  // camera lerp speed — higher = snappier
+const CAM_SIDE = -0.55;
+const CAM_SMOOTH = 12;
+
+// FOV settings
+const FOV_DEFAULT = 75;
+const FOV_ADS = 55;       // ADS zoom for AK/SMG/Shotgun
+const FOV_SNIPER = 18;    // Full scope zoom for Sniper
 
 // Gun barrel offset from player center in local character space
 const GUN_LOCAL_X = 0.25;
@@ -315,6 +320,9 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const setIsReloading = useGameStore((s) => s.setIsReloading);
   const recordShot = useGameStore((s) => s.recordShot);
   const selectedGun = useGameStore((s) => s.selectedGun);
+  const setIsScoped = useGameStore((s) => s.setIsScoped);
+
+  const isScopedRef = useRef(false);
 
   const fireRate: Record<string, number> = {
     "AK-47": 110,
@@ -378,6 +386,30 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
   }, []);
+
+  // Right-click = scope / ADS toggle
+  useEffect(() => {
+    const onRightDown = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      if (document.pointerLockElement !== document.body) return;
+      isScopedRef.current = true;
+      setIsScoped(true);
+    };
+    const onRightUp = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      isScopedRef.current = false;
+      setIsScoped(false);
+    };
+    const onCtx = (e: Event) => e.preventDefault();
+    window.addEventListener("mousedown", onRightDown);
+    window.addEventListener("mouseup", onRightUp);
+    document.addEventListener("contextmenu", onCtx);
+    return () => {
+      window.removeEventListener("mousedown", onRightDown);
+      window.removeEventListener("mouseup", onRightUp);
+      document.removeEventListener("contextmenu", onCtx);
+    };
+  }, [setIsScoped]);
 
   const checkCollision = useCallback((pos: THREE.Vector3): boolean => {
     if (Math.abs(pos.x) > ARENA_BOUNDS - PLAYER_RADIUS) return true;
@@ -534,6 +566,14 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     camera.rotation.y = yawRef.current;
     camera.rotation.x = pitchRef.current;
     camera.rotation.z = 0;
+
+    // Smooth FOV zoom for scope / ADS
+    const cam = camera as THREE.PerspectiveCamera;
+    const targetFov = isScopedRef.current
+      ? selectedGun === "Sniper" ? FOV_SNIPER : FOV_ADS
+      : FOV_DEFAULT;
+    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 1 - Math.exp(-14 * delta));
+    cam.updateProjectionMatrix();
 
     // Network send
     const now = Date.now();

@@ -2,6 +2,95 @@ import { useState } from "react";
 import { useGameStore } from "./store";
 import ShopModal from "./ShopModal";
 
+function SniperScope() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 45,
+        pointerEvents: "none",
+        overflow: "hidden",
+      }}
+    >
+      {/* Dark vignette corners — circular hole in center */}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="xMidYMid slice"
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <defs>
+          <mask id="scopeMask">
+            <rect width="100" height="100" fill="white" />
+            <circle cx="50" cy="50" r="34" fill="black" />
+          </mask>
+          <radialGradient id="glassGrad" cx="45%" cy="38%">
+            <stop offset="0%" stopColor="rgba(180,220,255,0.07)" />
+            <stop offset="60%" stopColor="rgba(120,180,255,0.02)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+          </radialGradient>
+        </defs>
+        {/* Black surround */}
+        <rect width="100" height="100" fill="rgba(0,0,0,0.97)" mask="url(#scopeMask)" />
+        {/* Glass glare inside circle */}
+        <circle cx="50" cy="50" r="34" fill="url(#glassGrad)" />
+        {/* Outer ring */}
+        <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(80,80,80,0.9)" strokeWidth="0.6" />
+        {/* Inner thin ring */}
+        <circle cx="50" cy="50" r="32.5" fill="none" stroke="rgba(60,60,60,0.5)" strokeWidth="0.25" />
+        {/* Crosshair — full lines */}
+        <line x1="16" y1="50" x2="84" y2="50" stroke="rgba(0,0,0,0.85)" strokeWidth="0.18" />
+        <line x1="50" y1="16" x2="50" y2="84" stroke="rgba(0,0,0,0.85)" strokeWidth="0.18" />
+        {/* Center gap — invisible center dot zone */}
+        <line x1="16" y1="50" x2="46.5" y2="50" stroke="rgba(20,20,20,0.95)" strokeWidth="0.22" />
+        <line x1="53.5" y1="50" x2="84" y2="50" stroke="rgba(20,20,20,0.95)" strokeWidth="0.22" />
+        <line x1="50" y1="16" x2="50" y2="46.5" stroke="rgba(20,20,20,0.95)" strokeWidth="0.22" />
+        <line x1="50" y1="53.5" x2="50" y2="84" stroke="rgba(20,20,20,0.95)" strokeWidth="0.22" />
+        {/* Center red dot */}
+        <circle cx="50" cy="50" r="0.4" fill="rgba(220,30,30,0.9)" />
+        {/* Mil-dots on horizontal */}
+        {[-12, -8, -4, 4, 8, 12].map((d) => (
+          <circle key={d} cx={50 + d} cy="50" r="0.35" fill="rgba(20,20,20,0.88)" />
+        ))}
+        {/* Mil-dots on vertical */}
+        {[-12, -8, -4, 4, 8, 12].map((d) => (
+          <circle key={d} cx="50" cy={50 + d} r="0.35" fill="rgba(20,20,20,0.88)" />
+        ))}
+        {/* Rangefinder ticks on horizontal */}
+        {[-16, -12, -8, -4, 4, 8, 12, 16].map((d) => (
+          <line key={d} x1={50 + d} y1="48.5" x2={50 + d} y2="51.5" stroke="rgba(20,20,20,0.6)" strokeWidth="0.15" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function ADSCrosshair() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%,-50%)",
+        zIndex: 45,
+        pointerEvents: "none",
+      }}
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+        <line x1="12" y1="0" x2="12" y2="6.5" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+        <line x1="12" y1="17.5" x2="12" y2="24" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+        <line x1="0" y1="12" x2="6.5" y2="12" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+        <line x1="17.5" y1="12" x2="24" y2="12" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+        <circle cx="12" cy="12" r="1.2" fill="rgba(255,80,80,0.9)" />
+      </svg>
+    </div>
+  );
+}
+
 export default function HUD() {
   const health = useGameStore((s) => s.health);
   const kills = useGameStore((s) => s.kills);
@@ -19,6 +108,7 @@ export default function HUD() {
   const selectedGun = useGameStore((s) => s.selectedGun);
   const setPhase = useGameStore((s) => s.setPhase);
   const coins = useGameStore((s) => s.coins);
+  const isScoped = useGameStore((s) => s.isScoped);
 
   const [showShop, setShowShop] = useState(false);
 
@@ -44,25 +134,51 @@ export default function HUD() {
         />
       )}
 
-      {/* CROSSHAIR */}
-      <div
-        style={{
+      {/* SCOPE OVERLAYS */}
+      {isScoped && selectedGun === "Sniper" && <SniperScope />}
+      {isScoped && selectedGun !== "Sniper" && <ADSCrosshair />}
+
+      {/* CROSSHAIR — hide when scoped */}
+      {!isScoped && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 40,
+            pointerEvents: "none",
+            width: 28,
+            height: 28,
+          }}
+        >
+          <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.9)", left: "50%", top: 0, transform: "translateX(-50%)" }} />
+          <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.9)", left: "50%", bottom: 0, transform: "translateX(-50%)" }} />
+          <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.9)", top: "50%", left: 0, transform: "translateY(-50%)" }} />
+          <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.9)", top: "50%", right: 0, transform: "translateY(-50%)" }} />
+          <div style={{ position: "absolute", width: 3, height: 3, background: "rgba(255,107,107,0.8)", borderRadius: "50%", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }} />
+        </div>
+      )}
+
+      {/* ADS hint for Sniper when not scoped */}
+      {!isScoped && selectedGun === "Sniper" && (
+        <div style={{
           position: "fixed",
-          top: "50%",
+          bottom: 80,
           left: "50%",
-          transform: "translate(-50%, -50%)",
+          transform: "translateX(-50%)",
           zIndex: 40,
           pointerEvents: "none",
-          width: 28,
-          height: 28,
-        }}
-      >
-        <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.9)", left: "50%", top: 0, transform: "translateX(-50%)" }} />
-        <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.9)", left: "50%", bottom: 0, transform: "translateX(-50%)" }} />
-        <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.9)", top: "50%", left: 0, transform: "translateY(-50%)" }} />
-        <div style={{ position: "absolute", height: 2, width: 10, background: "rgba(255,255,255,0.9)", top: "50%", right: 0, transform: "translateY(-50%)" }} />
-        <div style={{ position: "absolute", width: 3, height: 3, background: "rgba(255,107,107,0.8)", borderRadius: "50%", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }} />
-      </div>
+          background: "rgba(0,0,0,0.5)",
+          borderRadius: 6,
+          padding: "4px 12px",
+          fontSize: 10,
+          color: "rgba(255,255,255,0.5)",
+          letterSpacing: 1,
+        }}>
+          RIGHT CLICK — SCOPE
+        </div>
+      )}
 
       {/* BOTTOM-LEFT: Health + Ammo */}
       <div
@@ -248,7 +364,7 @@ export default function HUD() {
           </div>
           {scoreboard.slice(0, 6).map((p) => (
             <div key={p.id} style={{ fontSize: 11, display: "flex", justifyContent: "space-between", color: "#666", marginBottom: 2, padding: "2px 0" }}>
-              <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name.slice(0, 12)}</span>
+              <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(p.name || "Player").slice(0, 12)}</span>
               <span><span style={{ color: "#6bcb77" }}>{p.kills}</span>{" / "}<span style={{ color: "#ff6b6b" }}>{p.deaths}</span></span>
             </div>
           ))}

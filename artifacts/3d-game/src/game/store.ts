@@ -83,6 +83,7 @@ interface GameState {
   matchTime: number;
   totalShots: number;
   hitShots: number;
+  isScoped: boolean;
 
   setPhase: (p: GamePhase) => void;
   setMyId: (id: string) => void;
@@ -111,6 +112,7 @@ interface GameState {
   setMatchResult: (r: MatchResult | null) => void;
   setGraphicsQuality: (q: "low" | "medium" | "high") => void;
   setSelectedGun: (g: string) => void;
+  setIsScoped: (s: boolean) => void;
   recordShot: (hit: boolean) => void;
   resetMatchStats: () => void;
   addXp: (amount: number) => void;
@@ -153,6 +155,7 @@ export const useGameStore = create<GameState>((set) => ({
   matchTime: 0,
   totalShots: 0,
   hitShots: 0,
+  isScoped: false,
 
   setPhase: (phase) => set({ phase }),
   setMyId: (myId) => set({ myId }),
@@ -219,6 +222,7 @@ export const useGameStore = create<GameState>((set) => ({
   setMatchResult: (matchResult) => set({ matchResult }),
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
   setSelectedGun: (selectedGun) => set({ selectedGun }),
+  setIsScoped: (isScoped) => set({ isScoped }),
 
   recordShot: (hit) =>
     set((s) => ({
