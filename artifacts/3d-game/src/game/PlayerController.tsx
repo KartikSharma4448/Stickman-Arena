@@ -16,9 +16,33 @@ const CAM_DIST = 4.2;
 const CAM_HEIGHT = 2.0;
 const CAM_SIDE = 0.5;
 
+// Gun barrel offset from player center in local character space
+// local (right=+X, up=+Y, forward=-Z)
+const GUN_LOCAL_X = 0.25;
+const GUN_LOCAL_Y = 0.95;
+const GUN_LOCAL_Z = -0.65;
+const BARREL_EXTRA = 0.85; // how far the barrel extends beyond GUN_LOCAL_Z
+
 interface Props {
   spawnPos: THREE.Vector3;
   onShoot: (origin: THREE.Vector3, dir: THREE.Vector3) => void;
+}
+
+/** Converts character-local offset to world position given player pos + yaw */
+function localToWorld(
+  pos: THREE.Vector3,
+  yaw: number,
+  lx: number,
+  ly: number,
+  lz: number,
+): THREE.Vector3 {
+  const cosY = Math.cos(yaw);
+  const sinY = Math.sin(yaw);
+  return new THREE.Vector3(
+    pos.x + lx * cosY - lz * sinY,
+    pos.y + ly,
+    pos.z - lx * sinY + lz * cosY,
+  );
 }
 
 function LocalCharacter({
@@ -44,7 +68,6 @@ function LocalCharacter({
   const rightLegRef = useRef<THREE.Group>(null!);
   const gunGroupRef = useRef<THREE.Group>(null!);
   const walkCycle = useRef(0);
-  const shootFlash = useRef(0);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -53,41 +76,72 @@ function LocalCharacter({
     groupRef.current.rotation.y = yawRef.current;
 
     if (isMovingRef.current) {
-      walkCycle.current += delta * 9;
+      walkCycle.current += delta * 8.5;
     } else {
-      walkCycle.current *= 0.85;
+      walkCycle.current *= 0.88;
     }
 
-    const swing = Math.sin(walkCycle.current) * 0.5;
-    const bobY = Math.abs(Math.sin(walkCycle.current)) * (isMovingRef.current ? 0.04 : 0);
+    const swing = Math.sin(walkCycle.current) * 0.38;
+    const bobY = Math.abs(Math.sin(walkCycle.current)) * (isMovingRef.current ? 0.038 : 0);
 
     if (bodyRef.current) bodyRef.current.position.y = 0.95 + bobY;
 
+    // Arms stay in combat grip — just slight sway while walking
+    const COMBAT_X = -1.25; // arms raised forward
+
     if (leftArmRef.current) {
-      if (isShootingRef.current || isReloadingRef.current) {
-        leftArmRef.current.rotation.x = isReloadingRef.current ? -0.8 + Math.sin(Date.now() * 0.004) * 0.3 : -0.6;
-        leftArmRef.current.rotation.z = 0.18;
-      } else {
-        leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, -swing * 0.6, 0.15);
-        leftArmRef.current.rotation.z = THREE.MathUtils.lerp(leftArmRef.current.rotation.z, 0.18, 0.1);
-      }
+      leftArmRef.current.rotation.x = THREE.MathUtils.lerp(
+        leftArmRef.current.rotation.x,
+        isReloadingRef.current
+          ? COMBAT_X + Math.sin(Date.now() * 0.005) * 0.4
+          : COMBAT_X - swing * 0.12,
+        0.2,
+      );
     }
 
     if (rightArmRef.current) {
-      if (isShootingRef.current || isReloadingRef.current) {
-        rightArmRef.current.rotation.x = isReloadingRef.current ? -0.8 + Math.sin(Date.now() * 0.004 + 1) * 0.3 : -0.6;
-        rightArmRef.current.rotation.z = -0.22;
-      } else {
-        rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, swing * 0.6, 0.15);
-        rightArmRef.current.rotation.z = THREE.MathUtils.lerp(rightArmRef.current.rotation.z, -0.22, 0.1);
-      }
+      rightArmRef.current.rotation.x = THREE.MathUtils.lerp(
+        rightArmRef.current.rotation.x,
+        isReloadingRef.current
+          ? COMBAT_X + Math.sin(Date.now() * 0.005 + 1.5) * 0.35
+          : COMBAT_X + swing * 0.12,
+        0.2,
+      );
     }
 
-    if (leftLegRef.current) leftLegRef.current.rotation.x = -swing * 0.7;
-    if (rightLegRef.current) rightLegRef.current.rotation.x = swing * 0.7;
+    // Legs swing as normal
+    if (leftLegRef.current) leftLegRef.current.rotation.x = swing * 0.7;
+    if (rightLegRef.current) rightLegRef.current.rotation.x = -swing * 0.7;
 
-    if (isShootingRef.current) shootFlash.current = 0.15;
-    if (shootFlash.current > 0) shootFlash.current -= delta * 2;
+    // Gun recoil / reload
+    if (gunGroupRef.current) {
+      if (isShootingRef.current) {
+        gunGroupRef.current.position.z = THREE.MathUtils.lerp(
+          gunGroupRef.current.position.z,
+          0.14,
+          0.4,
+        );
+      } else {
+        gunGroupRef.current.position.z = THREE.MathUtils.lerp(
+          gunGroupRef.current.position.z,
+          0,
+          0.25,
+        );
+      }
+      if (isReloadingRef.current) {
+        gunGroupRef.current.rotation.x = THREE.MathUtils.lerp(
+          gunGroupRef.current.rotation.x,
+          -0.5 + Math.sin(Date.now() * 0.004) * 0.25,
+          0.1,
+        );
+      } else {
+        gunGroupRef.current.rotation.x = THREE.MathUtils.lerp(
+          gunGroupRef.current.rotation.x,
+          0,
+          0.15,
+        );
+      }
+    }
   });
 
   return (
@@ -97,109 +151,148 @@ function LocalCharacter({
         <sphereGeometry args={[0.21, 10, 10]} />
         <meshStandardMaterial color="#ffcc88" roughness={0.7} />
       </mesh>
-      {/* Face */}
-      <mesh position={[0, 1.68, 0.14]}>
+      <mesh position={[0, 1.68, 0.13]}>
         <sphereGeometry args={[0.13, 8, 8]} />
         <meshStandardMaterial color="#ffaa66" roughness={0.8} />
       </mesh>
+      {/* Eyes */}
+      <mesh position={[-0.07, 1.72, 0.19]}>
+        <sphereGeometry args={[0.025, 5, 5]} />
+        <meshStandardMaterial color="#111" />
+      </mesh>
+      <mesh position={[0.07, 1.72, 0.19]}>
+        <sphereGeometry args={[0.025, 5, 5]} />
+        <meshStandardMaterial color="#111" />
+      </mesh>
       {/* Helmet */}
-      <mesh position={[0, 1.84, 0]}>
-        <sphereGeometry args={[0.22, 8, 6]} />
-        <meshStandardMaterial color="#1a2a1a" roughness={0.6} metalness={0.3} />
+      <mesh position={[0, 1.85, 0]}>
+        <sphereGeometry args={[0.228, 8, 6]} />
+        <meshStandardMaterial color="#1a2a1a" roughness={0.55} metalness={0.38} />
       </mesh>
 
       {/* Body */}
       <mesh ref={bodyRef} position={[0, 0.95, 0]}>
         <boxGeometry args={[0.44, 0.7, 0.22]} />
-        <meshStandardMaterial color="#1a3a7a" roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial color="#1a3a7a" roughness={0.7} metalness={0.08} />
       </mesh>
-      {/* Vest */}
+      {/* Tactical vest */}
       <mesh position={[0, 0.98, 0.01]}>
         <boxGeometry args={[0.36, 0.5, 0.24]} />
-        <meshStandardMaterial color="#2a3a2a" roughness={0.8} />
+        <meshStandardMaterial color="#1e2e1e" roughness={0.85} />
+      </mesh>
+      {/* Vest pockets */}
+      <mesh position={[-0.1, 1.05, 0.13]}>
+        <boxGeometry args={[0.1, 0.1, 0.05]} />
+        <meshStandardMaterial color="#161e16" roughness={0.9} />
+      </mesh>
+      <mesh position={[0.1, 1.05, 0.13]}>
+        <boxGeometry args={[0.1, 0.1, 0.05]} />
+        <meshStandardMaterial color="#161e16" roughness={0.9} />
       </mesh>
       {/* Belt */}
-      <mesh position={[0, 0.65, 0]}>
+      <mesh position={[0, 0.64, 0]}>
         <boxGeometry args={[0.46, 0.07, 0.24]} />
-        <meshStandardMaterial color="#111" roughness={0.6} metalness={0.4} />
+        <meshStandardMaterial color="#111" roughness={0.5} metalness={0.5} />
       </mesh>
 
-      {/* Left Arm */}
-      <group ref={leftArmRef} position={[-0.3, 1.08, 0]} rotation={[0, 0, 0.18]}>
-        <mesh position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.07, 0.3, 4, 6]} />
+      {/* LEFT ARM — combat grip (forward raise) */}
+      <group ref={leftArmRef} position={[-0.26, 1.28, 0]} rotation={[-1.25, 0.12, 0.16]}>
+        {/* Upper arm */}
+        <mesh position={[0, -0.18, 0]}>
+          <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
         </mesh>
-        <mesh position={[0, -0.42, 0]}>
+        {/* Elbow joint */}
+        <mesh position={[0, -0.38, 0]}>
           <sphereGeometry args={[0.075, 6, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.7} />
+          <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
         </mesh>
-        <mesh position={[0, -0.56, 0]}>
-          <capsuleGeometry args={[0.06, 0.2, 4, 6]} />
+        {/* Lower arm */}
+        <mesh position={[0, -0.52, 0]}>
+          <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
+          <meshStandardMaterial color="#ffcc88" roughness={0.75} />
+        </mesh>
+        {/* Left hand (grips gun front) */}
+        <mesh position={[0, -0.68, 0]}>
+          <sphereGeometry args={[0.065, 6, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.7} />
         </mesh>
       </group>
 
-      {/* Right Arm (holds gun) */}
-      <group ref={rightArmRef} position={[0.3, 1.08, 0]} rotation={[0, 0, -0.22]}>
-        <mesh position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.07, 0.3, 4, 6]} />
+      {/* RIGHT ARM — trigger hand, slight less forward angle */}
+      <group ref={rightArmRef} position={[0.28, 1.25, 0]} rotation={[-1.15, -0.08, -0.14]}>
+        {/* Upper arm */}
+        <mesh position={[0, -0.18, 0]}>
+          <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
           <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
         </mesh>
-        <mesh position={[0, -0.42, 0]}>
+        {/* Elbow joint */}
+        <mesh position={[0, -0.38, 0]}>
           <sphereGeometry args={[0.075, 6, 6]} />
+          <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
+        </mesh>
+        {/* Lower arm */}
+        <mesh position={[0, -0.52, 0]}>
+          <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
+          <meshStandardMaterial color="#ffcc88" roughness={0.75} />
+        </mesh>
+        {/* Right hand */}
+        <mesh position={[0, -0.68, 0]}>
+          <sphereGeometry args={[0.065, 6, 6]} />
           <meshStandardMaterial color="#ffcc88" roughness={0.7} />
         </mesh>
-        <mesh position={[0, -0.56, 0]}>
-          <capsuleGeometry args={[0.06, 0.2, 4, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.7} />
-        </mesh>
-        {/* Gun held in right hand */}
-        <group ref={gunGroupRef} position={[0.05, -0.68, 0.32]} rotation={[-0.45, 0, 0.1]}>
-          <GunModel
-            gunType={selectedGun}
-            isShootingRef={isShootingRef}
-            isReloadingRef={isReloadingRef}
-          />
-        </group>
       </group>
 
-      {/* Left Leg */}
-      <group ref={leftLegRef} position={[-0.12, 0.62, 0]}>
+      {/* GUN — attached to character (not arm) for precise world placement */}
+      {/* position = local offset matching right hand position, rotation.y = PI to flip barrel forward */}
+      <group
+        ref={gunGroupRef}
+        position={[GUN_LOCAL_X, GUN_LOCAL_Y, GUN_LOCAL_Z]}
+        rotation={[0, Math.PI, 0]}
+      >
+        <GunModel
+          gunType={selectedGun}
+          isShootingRef={isShootingRef}
+          isReloadingRef={isReloadingRef}
+        />
+      </group>
+
+      {/* LEFT LEG */}
+      <group ref={leftLegRef} position={[-0.13, 0.62, 0]}>
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[0.15, 0.38, 0.17]} />
           <meshStandardMaterial color="#1a1a4a" roughness={0.8} />
         </mesh>
-        <mesh position={[0, -0.28, 0]}>
-          <capsuleGeometry args={[0.07, 0.35, 4, 6]} />
-          <meshStandardMaterial color="#0a0a2a" roughness={0.8} />
+        <mesh position={[0, -0.29, 0]}>
+          <capsuleGeometry args={[0.072, 0.35, 4, 6]} />
+          <meshStandardMaterial color="#0d0d2a" roughness={0.8} />
         </mesh>
         <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.12, 0.08, 0.22]} />
-          <meshStandardMaterial color="#222" roughness={0.9} />
+          <boxGeometry args={[0.13, 0.09, 0.24]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
         </mesh>
       </group>
 
-      {/* Right Leg */}
-      <group ref={rightLegRef} position={[0.12, 0.62, 0]}>
+      {/* RIGHT LEG */}
+      <group ref={rightLegRef} position={[0.13, 0.62, 0]}>
         <mesh position={[0, 0, 0]}>
           <boxGeometry args={[0.15, 0.38, 0.17]} />
           <meshStandardMaterial color="#1a1a4a" roughness={0.8} />
         </mesh>
-        <mesh position={[0, -0.28, 0]}>
-          <capsuleGeometry args={[0.07, 0.35, 4, 6]} />
-          <meshStandardMaterial color="#0a0a2a" roughness={0.8} />
+        <mesh position={[0, -0.29, 0]}>
+          <capsuleGeometry args={[0.072, 0.35, 4, 6]} />
+          <meshStandardMaterial color="#0d0d2a" roughness={0.8} />
         </mesh>
         <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.12, 0.08, 0.22]} />
-          <meshStandardMaterial color="#222" roughness={0.9} />
+          <boxGeometry args={[0.13, 0.09, 0.24]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
         </mesh>
       </group>
 
-      {/* Shadow */}
-      <mesh position={[0, -0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.4, 12]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.3} />
+      {/* Soft shadow blob */}
+      <mesh position={[0, -0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.42, 12]} />
+        <meshBasicMaterial color="#000" transparent opacity={0.35} />
       </mesh>
     </group>
   );
@@ -217,7 +310,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const lastSendRef = useRef(0);
   const seqRef = useRef(0);
   const lastShotRef = useRef(0);
-  const recoilRef = useRef(0);
 
   const isMovingRef = useRef(false);
   const isShootingRef = useRef(false);
@@ -233,10 +325,10 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const selectedGun = useGameStore((s) => s.selectedGun);
 
   const fireRate: Record<string, number> = {
-    "AK-47": 120,
-    "SMG": 70,
-    "Sniper": 800,
-    "Shotgun": 500,
+    "AK-47": 110,
+    "SMG": 65,
+    "Sniper": 850,
+    "Shotgun": 520,
   };
 
   useEffect(() => {
@@ -328,22 +420,32 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       const now = Date.now();
       if (now - lastShotRef.current < rate) return;
       lastShotRef.current = now;
-      recoilRef.current = 0.06;
 
       isShootingRef.current = true;
       setTimeout(() => { isShootingRef.current = false; }, 80);
 
-      const origin = camera.position.clone();
+      // Shoot origin = gun barrel world position
+      const yaw = yawRef.current;
+      const barrelTip = localToWorld(
+        posRef.current,
+        yaw,
+        GUN_LOCAL_X,
+        GUN_LOCAL_Y + 0.05,
+        GUN_LOCAL_Z - BARREL_EXTRA,
+      );
+
+      // Direction = where camera looks (crosshair aim)
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
+      dir.normalize();
 
       recordShot(false);
-      onShoot(origin, dir);
+      onShoot(barrelTip, dir);
 
       getSocket().emit("shoot", {
-        originX: origin.x,
-        originY: origin.y,
-        originZ: origin.z,
+        originX: barrelTip.x,
+        originY: barrelTip.y,
+        originZ: barrelTip.z,
         dirX: dir.x,
         dirY: dir.y,
         dirZ: dir.z,
@@ -360,7 +462,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       velYRef.current = 0;
       onGroundRef.current = true;
       setHealth(data.health);
-      recoilRef.current = 0;
       isReloadingRef.current = false;
     };
     const onDamage = (data: { health: number }) => {
@@ -380,14 +481,16 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     if (isDead) return;
 
     const k = keysRef.current;
-    const forward = new THREE.Vector3(-Math.sin(yawRef.current), 0, -Math.cos(yawRef.current));
-    const right = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current));
-    const moveDir = new THREE.Vector3();
+    const sinY = Math.sin(yawRef.current);
+    const cosY = Math.cos(yawRef.current);
+    const fwX = -sinY, fwZ = -cosY;
+    const rtX = cosY, rtZ = -sinY;
 
-    if (k["KeyW"] || k["ArrowUp"]) moveDir.add(forward);
-    if (k["KeyS"] || k["ArrowDown"]) moveDir.sub(forward);
-    if (k["KeyA"] || k["ArrowLeft"]) moveDir.sub(right);
-    if (k["KeyD"] || k["ArrowRight"]) moveDir.add(right);
+    const moveDir = new THREE.Vector3();
+    if (k["KeyW"] || k["ArrowUp"]) moveDir.add(new THREE.Vector3(fwX, 0, fwZ));
+    if (k["KeyS"] || k["ArrowDown"]) moveDir.sub(new THREE.Vector3(fwX, 0, fwZ));
+    if (k["KeyA"] || k["ArrowLeft"]) moveDir.sub(new THREE.Vector3(rtX, 0, rtZ));
+    if (k["KeyD"] || k["ArrowRight"]) moveDir.add(new THREE.Vector3(rtX, 0, rtZ));
 
     isMovingRef.current = moveDir.lengthSq() > 0.01;
     if (isMovingRef.current) moveDir.normalize();
@@ -395,10 +498,10 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     const speed = MOVE_SPEED * delta;
     const tryX = posRef.current.clone().addScaledVector(new THREE.Vector3(moveDir.x, 0, 0), speed);
     const tryZ = posRef.current.clone().addScaledVector(new THREE.Vector3(0, 0, moveDir.z), speed);
-
     if (!checkCollision(tryX)) posRef.current.x = tryX.x;
     if (!checkCollision(tryZ)) posRef.current.z = tryZ.z;
 
+    // Gravity + jump
     velYRef.current += GRAVITY * delta;
     posRef.current.y += velYRef.current * delta;
     if (posRef.current.y <= 0) {
@@ -407,26 +510,20 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
     }
 
-    if (recoilRef.current > 0) recoilRef.current *= 0.72;
-
-    // --- THIRD-PERSON CAMERA (PUBG style) ---
-    const sinY = Math.sin(yawRef.current);
-    const cosY = Math.cos(yawRef.current);
-
+    // --- THIRD-PERSON CAMERA (PUBG) ---
     const camX = posRef.current.x + sinY * CAM_DIST + cosY * CAM_SIDE;
     const camY = posRef.current.y + CAM_HEIGHT;
     const camZ = posRef.current.z + cosY * CAM_DIST - sinY * CAM_SIDE;
-
     camera.position.set(camX, camY, camZ);
 
-    const lookDist = 7;
-    const pitch = pitchRef.current + recoilRef.current;
+    const lookDist = 7.5;
+    const pitch = pitchRef.current;
     const lookX = posRef.current.x - sinY * lookDist;
-    const lookY = posRef.current.y + 1.2 + Math.sin(pitch) * 2.8;
+    const lookY = posRef.current.y + 1.15 + Math.sin(pitch) * 3;
     const lookZ = posRef.current.z - cosY * lookDist;
-
     camera.lookAt(lookX, lookY, lookZ);
 
+    // Network send
     const now = Date.now();
     if (now - lastSendRef.current > SEND_RATE) {
       lastSendRef.current = now;
