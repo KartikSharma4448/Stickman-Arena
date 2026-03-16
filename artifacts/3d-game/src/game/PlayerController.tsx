@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGameStore } from "./store";
 import { getSocket } from "./socket";
-import { ARENA_BOUNDS, ARENA_BOXES } from "./Arena";
+import { ARENA_BOUNDS } from "./Arena";
+import { sharedArena } from "./arenaShared";
 import GunModel from "./GunModel";
 import { touchState, touchJumpPending, clearTouchJump, touchScopeActive, touchShootPending, clearTouchShoot } from "./TouchControls";
 import { GUN_CONFIG } from "./gunConfig";
@@ -416,9 +417,10 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   }, []);
 
   const checkCollision = useCallback((pos: THREE.Vector3): boolean => {
-    if (Math.abs(pos.x) > ARENA_BOUNDS - PLAYER_RADIUS) return true;
-    if (Math.abs(pos.z) > ARENA_BOUNDS - PLAYER_RADIUS) return true;
-    for (const box of ARENA_BOXES) {
+    const bounds = sharedArena.bounds || ARENA_BOUNDS;
+    if (Math.abs(pos.x) > bounds - PLAYER_RADIUS) return true;
+    if (Math.abs(pos.z) > bounds - PLAYER_RADIUS) return true;
+    for (const box of sharedArena.boxes) {
       if (
         pos.x + PLAYER_RADIUS > box.min.x &&
         pos.x - PLAYER_RADIUS < box.max.x &&
@@ -519,7 +521,7 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     let groundY = 0;
     const px = posRef.current.x;
     const pz = posRef.current.z;
-    for (const box of ARENA_BOXES) {
+    for (const box of sharedArena.boxes) {
       if (
         px + PLAYER_RADIUS > box.min.x &&
         px - PLAYER_RADIUS < box.max.x &&

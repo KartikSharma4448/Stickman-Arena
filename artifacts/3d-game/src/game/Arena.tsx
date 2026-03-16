@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
+import { sharedArena } from "./arenaShared";
 
 /**
  * MAP: "Operation Highlands" - outdoor multi-level compound
@@ -95,7 +96,6 @@ const MAP_OBJECTS: [number, number, number, number, number, number][] = [
   [ 3,  0.5, 10, 1.5, 1, 1.5],
 ];
 
-// Build collision boxes — proper center-based min/max for all axes
 export const ARENA_BOXES = MAP_OBJECTS.map(([cx, cy, cz, w, h, d]) => ({
   position: new THREE.Vector3(cx, cy, cz),
   size: new THREE.Vector3(w, h, d),
@@ -121,6 +121,12 @@ function FlickerLight({
 }
 
 export default function Arena() {
+  // Register this map's collision boxes globally
+  useEffect(() => {
+    sharedArena.boxes = ARENA_BOXES;
+    sharedArena.bounds = ARENA_BOUNDS;
+  }, []);
+
   const wallGeom = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
 
   const floorMat = useMemo(() => new THREE.MeshStandardMaterial({

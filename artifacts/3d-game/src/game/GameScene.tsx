@@ -2,11 +2,19 @@ import { useRef, useEffect, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import Arena from "./Arena";
+import Arena2 from "./Arena2";
+import Arena3 from "./Arena3";
 import Stickman from "./Stickman";
 import PlayerController from "./PlayerController";
 import Effects, { addLocalShot } from "./Effects";
 import { useGameStore } from "./store";
 import { getSocket } from "./socket";
+
+const MAP_FOG: Record<string, { bg: string; fog: string; near: number; far: number }> = {
+  highlands: { bg: "#1a1e2a", fog: "#1a1e2a", near: 30, far: 80 },
+  desert:    { bg: "#e8c080", fog: "#c8a060", near: 40, far: 120 },
+  ruins:     { bg: "#3a3f48", fog: "#30353e", near: 20, far: 60  },
+};
 
 export default function GameScene() {
   const remotePlayers = useGameStore((s) => s.remotePlayers);
@@ -15,7 +23,9 @@ export default function GameScene() {
   const addShootEvent = useGameStore((s) => s.addShootEvent);
   const graphicsQuality = useGameStore((s) => s.graphicsQuality);
   const reload = useGameStore((s) => s.reload);
+  const currentMap = useGameStore((s) => s.currentMap);
   const spawnRef = useRef(new THREE.Vector3(0, 0, 0));
+  const mapFog = MAP_FOG[currentMap] ?? MAP_FOG.highlands;
 
   const antialias = graphicsQuality === "high";
   const shadows = graphicsQuality !== "low";
@@ -78,10 +88,14 @@ export default function GameScene() {
       style={{ position: "fixed", inset: 0 }}
       frameloop="always"
     >
-      <color attach="background" args={["#1a1e2a"]} />
-      <fog attach="fog" args={["#1a1e2a", 30, 80]} />
+      <color attach="background" args={[mapFog.bg]} />
+      <fog attach="fog" args={[mapFog.fog, mapFog.near, mapFog.far]} />
 
-      <Arena />
+      {currentMap === "highlands" && <Arena />}
+      {currentMap === "desert" && <Arena2 />}
+      {currentMap === "ruins" && <Arena3 />}
+      {/* Default to highlands if unknown */}
+      {currentMap !== "highlands" && currentMap !== "desert" && currentMap !== "ruins" && <Arena />}
 
       {!isDead && (
         <PlayerController

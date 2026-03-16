@@ -40,6 +40,12 @@ export interface Room {
   name: string;
   playerCount: number;
   maxPlayers: number;
+  map?: string;
+  mode?: "solo" | "squad";
+  type?: "public" | "private";
+  code?: string | null;
+  matchActive?: boolean;
+  timeLeft?: number;
 }
 
 export type GamePhase = "splash" | "login" | "lobby" | "matchmaking" | "playing" | "results";
@@ -85,6 +91,14 @@ interface GameState {
   totalShots: number;
   hitShots: number;
   isScoped: boolean;
+  // ─── Match state ───────────────────────────────────────────────────
+  currentMap: string;
+  matchMode: "solo" | "squad";
+  myTeamId: number;
+  matchTimeLeft: number;
+  killTarget: number;
+  matchLeaderboard: Array<{ id: string; name: string; kills: number; deaths: number; teamId: number }>;
+  roomCode: string | null;
 
   setPhase: (p: GamePhase) => void;
   setMyId: (id: string) => void;
@@ -116,6 +130,13 @@ interface GameState {
   setIsScoped: (s: boolean) => void;
   recordShot: (hit: boolean) => void;
   resetMatchStats: () => void;
+  setCurrentMap: (m: string) => void;
+  setMatchMode: (m: "solo" | "squad") => void;
+  setMyTeamId: (t: number) => void;
+  setMatchTimeLeft: (t: number) => void;
+  setKillTarget: (k: number) => void;
+  setMatchLeaderboard: (lb: Array<{ id: string; name: string; kills: number; deaths: number; teamId: number }>) => void;
+  setRoomCode: (c: string | null) => void;
   addXp: (amount: number) => void;
   addCoins: (amount: number) => void;
   buyItem: (itemId: string, price: number) => void;
@@ -157,6 +178,13 @@ export const useGameStore = create<GameState>((set) => ({
   totalShots: 0,
   hitShots: 0,
   isScoped: false,
+  currentMap: "highlands",
+  matchMode: "solo",
+  myTeamId: -1,
+  matchTimeLeft: 300000,
+  killTarget: 40,
+  matchLeaderboard: [],
+  roomCode: null,
 
   setPhase: (phase) => set({ phase }),
   setMyId: (myId) => set({ myId }),
@@ -238,7 +266,14 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   resetMatchStats: () =>
-    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30, isReloading: false }),
+    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30, isReloading: false, matchTimeLeft: 300000, matchLeaderboard: [] }),
+  setCurrentMap: (currentMap) => set({ currentMap }),
+  setMatchMode: (matchMode) => set({ matchMode }),
+  setMyTeamId: (myTeamId) => set({ myTeamId }),
+  setMatchTimeLeft: (matchTimeLeft) => set({ matchTimeLeft }),
+  setKillTarget: (killTarget) => set({ killTarget }),
+  setMatchLeaderboard: (matchLeaderboard) => set({ matchLeaderboard }),
+  setRoomCode: (roomCode) => set({ roomCode }),
 
   addXp: (amount) =>
     set((s) => {

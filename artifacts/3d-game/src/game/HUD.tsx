@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameStore } from "./store";
 import ShopModal from "./ShopModal";
+
+function formatTime(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 function SniperScope() {
   return (
@@ -109,8 +116,17 @@ export default function HUD() {
   const setPhase = useGameStore((s) => s.setPhase);
   const coins = useGameStore((s) => s.coins);
   const isScoped = useGameStore((s) => s.isScoped);
+  const matchTimeLeft = useGameStore((s) => s.matchTimeLeft);
+  const killTarget = useGameStore((s) => s.killTarget);
+  const matchLeaderboard = useGameStore((s) => s.matchLeaderboard);
+  const matchMode = useGameStore((s) => s.matchMode);
+  const myTeamId = useGameStore((s) => s.myTeamId);
+  const currentMap = useGameStore((s) => s.currentMap);
+  const roomCode = useGameStore((s) => s.roomCode);
+  const myId = useGameStore((s) => s.myId);
 
   const [showShop, setShowShop] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const scoreboard = Object.values(remotePlayers).sort((a, b) => b.kills - a.kills);
   const kd = deaths > 0 ? (kills / deaths).toFixed(1) : kills.toString();
