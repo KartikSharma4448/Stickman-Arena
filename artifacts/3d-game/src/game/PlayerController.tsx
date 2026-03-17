@@ -528,17 +528,21 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
 
     if (isTppRef.current) {
       // Third-person: position camera behind and above the player
-      const tppDist = 4.5;
-      const tppHeight = 2.2;
+      const tppDist = 3.8;
+      const tppHeight = 1.5;
       const cosY = Math.cos(yawRef.current);
       const sinY = Math.sin(yawRef.current);
+      // Slight right-shoulder offset (over-the-shoulder like PUBG)
+      const rightX = cosY * 0.4;
+      const rightZ = -sinY * 0.4;
       camera.position.set(
-        posRef.current.x + tppDist * sinY,
+        posRef.current.x + tppDist * sinY + rightX,
         posRef.current.y + tppHeight,
-        posRef.current.z + tppDist * cosY,
+        posRef.current.z + tppDist * cosY + rightZ,
       );
       camera.rotation.y = yawRef.current;
-      camera.rotation.x = Math.max(-0.35, Math.min(0.25, pitchRef.current * 0.6));
+      // Full pitch (no scaling) so crosshair goes exactly where player aims
+      camera.rotation.x = Math.max(-0.7, Math.min(0.5, pitchRef.current));
     } else {
       // First-person: camera at eye level
       camera.position.set(
