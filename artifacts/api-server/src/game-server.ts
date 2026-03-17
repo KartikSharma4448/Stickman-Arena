@@ -11,8 +11,8 @@ const GUN_DAMAGE: Record<string, { body: number; head: number; range: number }> 
 };
 
 // ─── Maps ─────────────────────────────────────────────────────────────────
-type MapId = "highlands" | "desert" | "ruins";
-const MAPS: MapId[] = ["highlands", "desert", "ruins"];
+type MapId = "highlands" | "desert" | "ruins" | "bgmk";
+const MAPS: MapId[] = ["highlands", "desert", "ruins", "bgmk"];
 
 const MAP_SPAWNS: Record<MapId, Array<{ x: number; y: number; z: number }>> = {
   highlands: [
@@ -32,6 +32,14 @@ const MAP_SPAWNS: Record<MapId, Array<{ x: number; y: number; z: number }>> = {
     { x: 10,  y: 0, z: -10}, { x: -10, y: 0, z: -10 }, { x: 16,  y: 0, z: 0  },
     { x: -16, y: 0, z: 0  }, { x: 0,   y: 0, z: 16  }, { x: 0,   y: 0, z: -16},
     { x: 7,   y: 0, z: -7 }, { x: -7,  y: 0, z: 7   },
+  ],
+  bgmk: [
+    { x: 0,   y: 0, z: -26 }, { x: 0,   y: 0, z: 26  },
+    { x: -26, y: 0, z: 0   }, { x: 26,  y: 0, z: 0   },
+    { x: -18, y: 0, z: -20 }, { x: 18,  y: 0, z: -20 },
+    { x: -18, y: 0, z: 20  }, { x: 18,  y: 0, z: 20  },
+    { x: -26, y: 0, z: -12 }, { x: 26,  y: 0, z: -12 },
+    { x: 0,   y: 0, z: 0   },
   ],
 };
 

@@ -16,6 +16,7 @@ const MAPS = [
   { id: "highlands", name: "Operation Highlands", icon: "🏔️", desc: "Sniper towers, bunkers, high ground" },
   { id: "desert",    name: "Desert Storm",        icon: "🏜️", desc: "Open dunes, long-range duels"      },
   { id: "ruins",     name: "Urban Ruins",          icon: "🏚️", desc: "Close-quarters building combat"    },
+  { id: "bgmk",      name: "BGMK Compound",        icon: "🏭", desc: "Military compound, warehouse CQC"  },
 ];
 
 const DAILY_MISSIONS = [
@@ -412,7 +413,7 @@ export default function MainLobby() {
 
               {/* Match info footer */}
               <div style={{ marginTop: 14, background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "10px 14px", fontSize: 10, color: "#333", textAlign: "center" }}>
-                🎯 40 Kills or 5 Min Timer · 8 Players Max · Solo & Squad · 3 Maps
+                🎯 40 Kills or 5 Min Timer · 8 Players Max · Solo & Squad · 4 Maps
               </div>
             </div>
           )}

@@ -4,6 +4,7 @@ import * as THREE from "three";
 import Arena from "./Arena";
 import Arena2 from "./Arena2";
 import Arena3 from "./Arena3";
+import Arena4 from "./Arena4";
 import Stickman from "./Stickman";
 import PlayerController from "./PlayerController";
 import Effects, { addLocalShot } from "./Effects";
@@ -14,6 +15,7 @@ const MAP_FOG: Record<string, { bg: string; fog: string; near: number; far: numb
   highlands: { bg: "#1a1e2a", fog: "#1a1e2a", near: 30, far: 80 },
   desert:    { bg: "#e8c080", fog: "#c8a060", near: 40, far: 120 },
   ruins:     { bg: "#3a3f48", fog: "#30353e", near: 20, far: 60  },
+  bgmk:      { bg: "#a8bca0", fog: "#9aae92", near: 45, far: 130 },
 };
 
 export default function GameScene() {
@@ -94,8 +96,9 @@ export default function GameScene() {
       {currentMap === "highlands" && <Arena />}
       {currentMap === "desert" && <Arena2 />}
       {currentMap === "ruins" && <Arena3 />}
+      {currentMap === "bgmk" && <Arena4 />}
       {/* Default to highlands if unknown */}
-      {currentMap !== "highlands" && currentMap !== "desert" && currentMap !== "ruins" && <Arena />}
+      {currentMap !== "highlands" && currentMap !== "desert" && currentMap !== "ruins" && currentMap !== "bgmk" && <Arena />}
 
       {!isDead && (
         <PlayerController
