@@ -19,7 +19,6 @@ export default function Stickman({ player }: StickmanProps) {
   const lerpedPos = useRef(new THREE.Vector3(player.x, player.y, player.z));
   const lerpedRotY = useRef(player.rotY);
   const walkCycle = useRef(0);
-  const wasMoving = useRef(false);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -51,107 +50,106 @@ export default function Stickman({ player }: StickmanProps) {
   });
 
   const isDead = player.health <= 0;
-  const skinColor = isDead ? "#888888" : "#ffcc88";
-  const bodyColor = isDead ? "#444444" : "#1a3a7a";
-  const legColor = isDead ? "#333333" : "#1a1a4a";
+  const skinColor = isDead ? "#888888" : "#f5b78f";
+  const bodyColor = isDead ? "#444444" : "#3a6bc4";
+  const legColor = isDead ? "#333333" : "#2a3a9c";
+  const hairColor = isDead ? "#555555" : "#6b3a1a";
 
   return (
     <group ref={groupRef} position={[player.x, player.y, player.z]}>
-      {/* Head */}
-      <mesh position={[0, 1.68, 0]}>
-        <sphereGeometry args={[0.21, 10, 10]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
+
+      {/* ===== HEAD ===== */}
+      {/* Main head cube - Minecraft style */}
+      <mesh position={[0, 1.65, 0]}>
+        <boxGeometry args={[0.4, 0.4, 0.4]} />
+        <meshStandardMaterial color={skinColor} roughness={0.9} />
       </mesh>
-      <mesh position={[0, 1.68, 0.14]}>
-        <sphereGeometry args={[0.13, 8, 8]} />
-        <meshStandardMaterial color={isDead ? "#666" : "#ffaa66"} roughness={0.8} />
+      {/* Hair block on top */}
+      <mesh position={[0, 1.8, 0]}>
+        <boxGeometry args={[0.42, 0.22, 0.42]} />
+        <meshStandardMaterial color={hairColor} roughness={0.9} />
       </mesh>
-      {/* Helmet */}
-      <mesh position={[0, 1.84, 0]}>
-        <sphereGeometry args={[0.22, 8, 6]} />
-        <meshStandardMaterial color={isDead ? "#333" : "#1a2a1a"} roughness={0.6} metalness={0.3} />
+      {/* Left eye */}
+      <mesh position={[-0.09, 1.66, 0.201]}>
+        <boxGeometry args={[0.09, 0.07, 0.01]} />
+        <meshBasicMaterial color="#111111" />
+      </mesh>
+      {/* Right eye */}
+      <mesh position={[0.09, 1.66, 0.201]}>
+        <boxGeometry args={[0.09, 0.07, 0.01]} />
+        <meshBasicMaterial color="#111111" />
+      </mesh>
+      {/* Mouth */}
+      <mesh position={[0, 1.58, 0.201]}>
+        <boxGeometry args={[0.14, 0.04, 0.01]} />
+        <meshBasicMaterial color="#8b4513" />
       </mesh>
 
-      {/* Body */}
+      {/* ===== BODY ===== */}
       <mesh ref={bodyRef} position={[0, 0.95, 0]}>
-        <boxGeometry args={[0.44, 0.7, 0.22]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.7} />
+        <boxGeometry args={[0.44, 0.52, 0.22]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.85} />
       </mesh>
-      <mesh position={[0, 0.98, 0.01]}>
-        <boxGeometry args={[0.36, 0.5, 0.24]} />
-        <meshStandardMaterial color={isDead ? "#333" : "#2a3a2a"} roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0.65, 0]}>
-        <boxGeometry args={[0.46, 0.07, 0.24]} />
-        <meshStandardMaterial color="#111" roughness={0.6} metalness={0.4} />
+      {/* Shirt detail stripe */}
+      <mesh position={[0, 0.95, 0.112]}>
+        <boxGeometry args={[0.44, 0.52, 0.01]} />
+        <meshStandardMaterial color={isDead ? "#333" : "#2a5aaa"} roughness={0.85} />
       </mesh>
 
-      {/* Left Arm */}
-      <group ref={leftArmRef} position={[-0.3, 1.08, 0]} rotation={[0, 0, 0.18]}>
-        <mesh position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.07, 0.3, 4, 6]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.7} />
+      {/* ===== LEFT ARM ===== */}
+      <group ref={leftArmRef} position={[-0.32, 1.16, 0]}>
+        <mesh position={[0, -0.26, 0]}>
+          <boxGeometry args={[0.2, 0.52, 0.22]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.42, 0]}>
-          <sphereGeometry args={[0.075, 6, 6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.7} />
-        </mesh>
-        <mesh position={[0, -0.56, 0]}>
-          <capsuleGeometry args={[0.06, 0.2, 4, 6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        {/* Hand (skin colour block at bottom) */}
+        <mesh position={[0, -0.55, 0]}>
+          <boxGeometry args={[0.2, 0.1, 0.22]} />
+          <meshStandardMaterial color={skinColor} roughness={0.85} />
         </mesh>
       </group>
 
-      {/* Right Arm + Gun */}
-      <group ref={rightArmRef} position={[0.3, 1.08, 0]} rotation={[0, 0, -0.22]}>
-        <mesh position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.07, 0.3, 4, 6]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.7} />
+      {/* ===== RIGHT ARM + GUN ===== */}
+      <group ref={rightArmRef} position={[0.32, 1.16, 0]}>
+        <mesh position={[0, -0.26, 0]}>
+          <boxGeometry args={[0.2, 0.52, 0.22]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.42, 0]}>
-          <sphereGeometry args={[0.075, 6, 6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.7} />
-        </mesh>
-        <mesh position={[0, -0.56, 0]}>
-          <capsuleGeometry args={[0.06, 0.2, 4, 6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        {/* Hand */}
+        <mesh position={[0, -0.55, 0]}>
+          <boxGeometry args={[0.2, 0.1, 0.22]} />
+          <meshStandardMaterial color={skinColor} roughness={0.85} />
         </mesh>
         {!isDead && (
-          <group position={[0.05, -0.7, 0.32]} rotation={[-0.45, 0, 0.1]}>
+          <group position={[0.05, -0.6, 0.32]} rotation={[-0.45, 0, 0.1]}>
             <GunModel gunType="AK-47" />
           </group>
         )}
       </group>
 
-      {/* Left Leg */}
-      <group ref={leftLegRef} position={[-0.12, 0.62, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.15, 0.38, 0.17]} />
-          <meshStandardMaterial color={legColor} roughness={0.8} />
+      {/* ===== LEFT LEG ===== */}
+      <group ref={leftLegRef} position={[-0.11, 0.68, 0]}>
+        <mesh position={[0, -0.32, 0]}>
+          <boxGeometry args={[0.2, 0.64, 0.22]} />
+          <meshStandardMaterial color={legColor} roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.28, 0]}>
-          <capsuleGeometry args={[0.07, 0.35, 4, 6]} />
-          <meshStandardMaterial color={isDead ? "#222" : "#0a0a2a"} roughness={0.8} />
-        </mesh>
-        <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.12, 0.08, 0.22]} />
-          <meshStandardMaterial color="#222" roughness={0.9} />
+        {/* Boot */}
+        <mesh position={[0, -0.67, 0.02]}>
+          <boxGeometry args={[0.22, 0.1, 0.26]} />
+          <meshStandardMaterial color={isDead ? "#222" : "#1a1a1a"} roughness={0.9} />
         </mesh>
       </group>
 
-      {/* Right Leg */}
-      <group ref={rightLegRef} position={[0.12, 0.62, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.15, 0.38, 0.17]} />
-          <meshStandardMaterial color={legColor} roughness={0.8} />
+      {/* ===== RIGHT LEG ===== */}
+      <group ref={rightLegRef} position={[0.11, 0.68, 0]}>
+        <mesh position={[0, -0.32, 0]}>
+          <boxGeometry args={[0.2, 0.64, 0.22]} />
+          <meshStandardMaterial color={legColor} roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.28, 0]}>
-          <capsuleGeometry args={[0.07, 0.35, 4, 6]} />
-          <meshStandardMaterial color={isDead ? "#222" : "#0a0a2a"} roughness={0.8} />
-        </mesh>
-        <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.12, 0.08, 0.22]} />
-          <meshStandardMaterial color="#222" roughness={0.9} />
+        {/* Boot */}
+        <mesh position={[0, -0.67, 0.02]}>
+          <boxGeometry args={[0.22, 0.1, 0.26]} />
+          <meshStandardMaterial color={isDead ? "#222" : "#1a1a1a"} roughness={0.9} />
         </mesh>
       </group>
 

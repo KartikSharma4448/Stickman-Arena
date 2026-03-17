@@ -148,92 +148,68 @@ function LocalCharacter({
 
   return (
     <group ref={groupRef}>
-      {/* Head */}
-      <mesh position={[0, 1.68, 0]}>
-        <sphereGeometry args={[0.21, 10, 10]} />
-        <meshStandardMaterial color="#ffcc88" roughness={0.7} />
+      {/* ===== HEAD - Minecraft block style ===== */}
+      <mesh position={[0, 1.65, 0]}>
+        <boxGeometry args={[0.4, 0.4, 0.4]} />
+        <meshStandardMaterial color="#f5b78f" roughness={0.9} />
       </mesh>
-      <mesh position={[0, 1.68, 0.13]}>
-        <sphereGeometry args={[0.13, 8, 8]} />
-        <meshStandardMaterial color="#ffaa66" roughness={0.8} />
+      {/* Hair block */}
+      <mesh position={[0, 1.8, 0]}>
+        <boxGeometry args={[0.42, 0.22, 0.42]} />
+        <meshStandardMaterial color="#6b3a1a" roughness={0.9} />
       </mesh>
-      {/* Eyes */}
-      <mesh position={[-0.07, 1.72, 0.19]}>
-        <sphereGeometry args={[0.025, 5, 5]} />
-        <meshStandardMaterial color="#111" />
+      {/* Left eye */}
+      <mesh position={[-0.09, 1.66, 0.201]}>
+        <boxGeometry args={[0.09, 0.07, 0.01]} />
+        <meshBasicMaterial color="#111111" />
       </mesh>
-      <mesh position={[0.07, 1.72, 0.19]}>
-        <sphereGeometry args={[0.025, 5, 5]} />
-        <meshStandardMaterial color="#111" />
+      {/* Right eye */}
+      <mesh position={[0.09, 1.66, 0.201]}>
+        <boxGeometry args={[0.09, 0.07, 0.01]} />
+        <meshBasicMaterial color="#111111" />
       </mesh>
-      {/* Helmet */}
-      <mesh position={[0, 1.85, 0]}>
-        <sphereGeometry args={[0.228, 8, 6]} />
-        <meshStandardMaterial color="#1a2a1a" roughness={0.55} metalness={0.38} />
+      {/* Mouth */}
+      <mesh position={[0, 1.58, 0.201]}>
+        <boxGeometry args={[0.14, 0.04, 0.01]} />
+        <meshBasicMaterial color="#8b4513" />
       </mesh>
 
-      {/* Body */}
+      {/* ===== BODY - Minecraft block style ===== */}
       <mesh ref={bodyRef} position={[0, 0.95, 0]}>
-        <boxGeometry args={[0.44, 0.7, 0.22]} />
-        <meshStandardMaterial color="#1a3a7a" roughness={0.7} metalness={0.08} />
+        <boxGeometry args={[0.44, 0.52, 0.22]} />
+        <meshStandardMaterial color="#3a6bc4" roughness={0.85} />
       </mesh>
-      {/* Tactical vest */}
-      <mesh position={[0, 0.98, 0.01]}>
-        <boxGeometry args={[0.36, 0.5, 0.24]} />
-        <meshStandardMaterial color="#1e2e1e" roughness={0.85} />
-      </mesh>
-      {/* Vest pockets */}
-      <mesh position={[-0.1, 1.05, 0.13]}>
-        <boxGeometry args={[0.1, 0.1, 0.05]} />
-        <meshStandardMaterial color="#161e16" roughness={0.9} />
-      </mesh>
-      <mesh position={[0.1, 1.05, 0.13]}>
-        <boxGeometry args={[0.1, 0.1, 0.05]} />
-        <meshStandardMaterial color="#161e16" roughness={0.9} />
-      </mesh>
-      {/* Belt */}
-      <mesh position={[0, 0.64, 0]}>
-        <boxGeometry args={[0.46, 0.07, 0.24]} />
-        <meshStandardMaterial color="#111" roughness={0.5} metalness={0.5} />
+      {/* Shirt front detail */}
+      <mesh position={[0, 0.95, 0.112]}>
+        <boxGeometry args={[0.44, 0.52, 0.01]} />
+        <meshStandardMaterial color="#2a5aaa" roughness={0.85} />
       </mesh>
 
-      {/* LEFT ARM */}
+      {/* ===== LEFT ARM - Minecraft block style ===== */}
       <group ref={leftArmRef} position={[-0.26, 1.28, 0]} rotation={[-1.25, 0.12, 0.16]}>
-        <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
-          <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
+        {/* Sleeve */}
+        <mesh position={[0, -0.24, 0]}>
+          <boxGeometry args={[0.2, 0.48, 0.22]} />
+          <meshStandardMaterial color="#3a6bc4" roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.38, 0]}>
-          <sphereGeometry args={[0.075, 6, 6]} />
-          <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
-        </mesh>
+        {/* Hand */}
         <mesh position={[0, -0.52, 0]}>
-          <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.75} />
-        </mesh>
-        <mesh position={[0, -0.68, 0]}>
-          <sphereGeometry args={[0.065, 6, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.7} />
+          <boxGeometry args={[0.2, 0.1, 0.22]} />
+          <meshStandardMaterial color="#f5b78f" roughness={0.85} />
         </mesh>
       </group>
 
-      {/* RIGHT ARM */}
+      {/* ===== RIGHT ARM - Minecraft block style ===== */}
       <group ref={rightArmRef} position={[0.28, 1.25, 0]} rotation={[-1.15, -0.08, -0.14]}>
-        <mesh position={[0, -0.18, 0]}>
-          <capsuleGeometry args={[0.072, 0.28, 4, 6]} />
-          <meshStandardMaterial color="#1a3a7a" roughness={0.7} />
+        {/* Sleeve */}
+        <mesh position={[0, -0.24, 0]}>
+          <boxGeometry args={[0.2, 0.48, 0.22]} />
+          <meshStandardMaterial color="#3a6bc4" roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.38, 0]}>
-          <sphereGeometry args={[0.075, 6, 6]} />
-          <meshStandardMaterial color="#1a3a7a" roughness={0.6} />
-        </mesh>
+        {/* Hand */}
         <mesh position={[0, -0.52, 0]}>
-          <capsuleGeometry args={[0.062, 0.22, 4, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.75} />
-        </mesh>
-        <mesh position={[0, -0.68, 0]}>
-          <sphereGeometry args={[0.065, 6, 6]} />
-          <meshStandardMaterial color="#ffcc88" roughness={0.7} />
+          <boxGeometry args={[0.2, 0.1, 0.22]} />
+          <meshStandardMaterial color="#f5b78f" roughness={0.85} />
         </mesh>
       </group>
 
@@ -250,34 +226,28 @@ function LocalCharacter({
         />
       </group>
 
-      {/* LEFT LEG */}
-      <group ref={leftLegRef} position={[-0.13, 0.62, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.15, 0.38, 0.17]} />
-          <meshStandardMaterial color="#1a1a4a" roughness={0.8} />
+      {/* ===== LEFT LEG - Minecraft block style ===== */}
+      <group ref={leftLegRef} position={[-0.11, 0.68, 0]}>
+        <mesh position={[0, -0.32, 0]}>
+          <boxGeometry args={[0.2, 0.64, 0.22]} />
+          <meshStandardMaterial color="#2a3a9c" roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.29, 0]}>
-          <capsuleGeometry args={[0.072, 0.35, 4, 6]} />
-          <meshStandardMaterial color="#0d0d2a" roughness={0.8} />
-        </mesh>
-        <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.13, 0.09, 0.24]} />
+        {/* Boot */}
+        <mesh position={[0, -0.67, 0.02]}>
+          <boxGeometry args={[0.22, 0.1, 0.26]} />
           <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
         </mesh>
       </group>
 
-      {/* RIGHT LEG */}
-      <group ref={rightLegRef} position={[0.13, 0.62, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.15, 0.38, 0.17]} />
-          <meshStandardMaterial color="#1a1a4a" roughness={0.8} />
+      {/* ===== RIGHT LEG - Minecraft block style ===== */}
+      <group ref={rightLegRef} position={[0.11, 0.68, 0]}>
+        <mesh position={[0, -0.32, 0]}>
+          <boxGeometry args={[0.2, 0.64, 0.22]} />
+          <meshStandardMaterial color="#2a3a9c" roughness={0.85} />
         </mesh>
-        <mesh position={[0, -0.29, 0]}>
-          <capsuleGeometry args={[0.072, 0.35, 4, 6]} />
-          <meshStandardMaterial color="#0d0d2a" roughness={0.8} />
-        </mesh>
-        <mesh position={[0, -0.52, 0.05]}>
-          <boxGeometry args={[0.13, 0.09, 0.24]} />
+        {/* Boot */}
+        <mesh position={[0, -0.67, 0.02]}>
+          <boxGeometry args={[0.22, 0.1, 0.26]} />
           <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
         </mesh>
       </group>
