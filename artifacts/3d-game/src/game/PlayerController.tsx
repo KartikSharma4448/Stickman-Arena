@@ -601,9 +601,20 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       // Accurate origin for server hit detection
       const aimOrigin = camera.position.clone().addScaledVector(baseDir, 0.3);
 
-      // Visual muzzle flash origin — pushed well in front of camera to avoid
-      // the bullet trail appearing to pass through the screen
-      const barrelTip = camera.position.clone().addScaledVector(baseDir, 1.8);
+      // Visual muzzle flash origin
+      // TPP: compute from the character's gun barrel world position
+      // FPP: push in front of camera to avoid trail passing through screen
+      let barrelTip: THREE.Vector3;
+      if (isTppRef.current) {
+        // Right vector perpendicular to look direction in XZ plane
+        const right = new THREE.Vector3(-baseDir.z, 0, baseDir.x).normalize();
+        barrelTip = posRef.current.clone()
+          .addScaledVector(right, 0.38)        // gun on right shoulder
+          .add(new THREE.Vector3(0, 1.25, 0))  // shoulder/arm height
+          .addScaledVector(baseDir, 0.65);     // extend to barrel tip
+      } else {
+        barrelTip = camera.position.clone().addScaledVector(baseDir, 1.8);
+      }
 
       // Build pellet directions with spread
       const pellets: Array<{ dirX: number; dirY: number; dirZ: number }> = [];
