@@ -78,7 +78,8 @@ function LocalCharacter({
     if (!groupRef.current) return;
 
     groupRef.current.position.copy(posRef.current);
-    groupRef.current.rotation.y = yawRef.current;
+    // +π flips character so its BACK faces the TPP camera (camera is behind player)
+    groupRef.current.rotation.y = yawRef.current + Math.PI;
 
     if (isMovingRef.current) {
       walkCycle.current += delta * 8.5;
