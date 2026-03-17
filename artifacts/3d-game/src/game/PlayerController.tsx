@@ -288,6 +288,9 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const recordShot = useGameStore((s) => s.recordShot);
   const selectedGun = useGameStore((s) => s.selectedGun);
   const setIsScoped = useGameStore((s) => s.setIsScoped);
+  const isTpp = useGameStore((s) => s.isTpp);
+  const isTppRef = useRef(isTpp);
+  useEffect(() => { isTppRef.current = isTpp; }, [isTpp]);
 
   const isScopedRef = useRef(false);
   const mouseHeldRef = useRef(false);
@@ -518,19 +521,33 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       onGroundRef.current = true;
     }
 
-    // --- FIRST-PERSON CAMERA ---
-    // Camera sits exactly at the player's eye level, no offset
-    camera.position.set(
-      posRef.current.x,
-      posRef.current.y + EYE_HEIGHT,
-      posRef.current.z,
-    );
-
-    // Camera rotation: use YXZ order for FPS/TPS look (yaw then pitch)
+    // --- CAMERA (FPP or TPP) ---
     camera.rotation.order = "YXZ";
-    camera.rotation.y = yawRef.current;
-    camera.rotation.x = pitchRef.current;
     camera.rotation.z = 0;
+
+    if (isTppRef.current) {
+      // Third-person: position camera behind and above the player
+      const tppDist = 4.5;
+      const tppHeight = 2.2;
+      const cosY = Math.cos(yawRef.current);
+      const sinY = Math.sin(yawRef.current);
+      camera.position.set(
+        posRef.current.x + tppDist * sinY,
+        posRef.current.y + tppHeight,
+        posRef.current.z + tppDist * cosY,
+      );
+      camera.rotation.y = yawRef.current;
+      camera.rotation.x = Math.max(-0.35, Math.min(0.25, pitchRef.current * 0.6));
+    } else {
+      // First-person: camera at eye level
+      camera.position.set(
+        posRef.current.x,
+        posRef.current.y + EYE_HEIGHT,
+        posRef.current.z,
+      );
+      camera.rotation.y = yawRef.current;
+      camera.rotation.x = pitchRef.current;
+    }
 
     // Merge mouse scope + touch ADS for FOV and HUD
     const effectiveScoped = isScopedRef.current || touchScopeActive;
@@ -583,11 +600,9 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       // Accurate origin for server hit detection
       const aimOrigin = camera.position.clone().addScaledVector(baseDir, 0.3);
 
-      // Visual muzzle flash origin
-      const barrelTip = localToWorld(
-        posRef.current, yawRef.current,
-        GUN_LOCAL_X, GUN_LOCAL_Y + 0.05, GUN_LOCAL_Z - BARREL_EXTRA,
-      );
+      // Visual muzzle flash origin — pushed well in front of camera to avoid
+      // the bullet trail appearing to pass through the screen
+      const barrelTip = camera.position.clone().addScaledVector(baseDir, 1.8);
 
       // Build pellet directions with spread
       const pellets: Array<{ dirX: number; dirY: number; dirZ: number }> = [];
@@ -638,6 +653,16 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     }
   });
 
-  // First-person: don't render own body (camera is inside the head)
-  return null;
+  // In TPP mode show own body; in FPP hide it (camera is inside the head)
+  if (!isTpp) return null;
+  return (
+    <LocalCharacter
+      posRef={posRef}
+      yawRef={yawRef}
+      isMovingRef={isMovingRef}
+      isShootingRef={isShootingRef}
+      isReloadingRef={isReloadingRef}
+      selectedGun={selectedGun}
+    />
+  );
 }

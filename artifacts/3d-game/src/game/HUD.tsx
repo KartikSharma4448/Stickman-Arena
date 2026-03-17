@@ -116,6 +116,8 @@ export default function HUD() {
   const setPhase = useGameStore((s) => s.setPhase);
   const coins = useGameStore((s) => s.coins);
   const isScoped = useGameStore((s) => s.isScoped);
+  const isTpp = useGameStore((s) => s.isTpp);
+  const setIsTpp = useGameStore((s) => s.setIsTpp);
   const matchTimeLeft = useGameStore((s) => s.matchTimeLeft);
   const killTarget = useGameStore((s) => s.killTarget);
   const matchLeaderboard = useGameStore((s) => s.matchLeaderboard);
@@ -414,6 +416,23 @@ export default function HUD() {
           }}
         >
           🛒 SHOP
+        </button>
+        <button
+          onClick={() => setIsTpp(!isTpp)}
+          style={{
+            background: isTpp ? "rgba(74,158,255,0.18)" : "rgba(0,0,0,0.4)",
+            border: isTpp ? "1px solid rgba(74,158,255,0.5)" : "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 8,
+            padding: "6px 14px",
+            color: isTpp ? "#4a9eff" : "#aaa",
+            fontSize: 11,
+            cursor: "pointer",
+            backdropFilter: "blur(4px)",
+            fontWeight: "bold",
+            letterSpacing: 0.5,
+          }}
+        >
+          {isTpp ? "👁 TPP" : "👁 FPP"}
         </button>
         <button
           onClick={() => setPhase("results")}

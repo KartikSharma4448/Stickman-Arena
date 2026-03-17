@@ -91,6 +91,7 @@ interface GameState {
   totalShots: number;
   hitShots: number;
   isScoped: boolean;
+  isTpp: boolean;
   // ─── Match state ───────────────────────────────────────────────────
   currentMap: string;
   matchMode: "solo" | "squad";
@@ -128,6 +129,7 @@ interface GameState {
   setGraphicsQuality: (q: "low" | "medium" | "high") => void;
   setSelectedGun: (g: string) => void;
   setIsScoped: (s: boolean) => void;
+  setIsTpp: (t: boolean) => void;
   recordShot: (hit: boolean) => void;
   resetMatchStats: () => void;
   setCurrentMap: (m: string) => void;
@@ -178,6 +180,7 @@ export const useGameStore = create<GameState>((set) => ({
   totalShots: 0,
   hitShots: 0,
   isScoped: false,
+  isTpp: false,
   currentMap: "highlands",
   matchMode: "solo",
   myTeamId: -1,
@@ -257,6 +260,7 @@ export const useGameStore = create<GameState>((set) => ({
     isReloading: false,
   }),
   setIsScoped: (isScoped) => set({ isScoped }),
+  setIsTpp: (isTpp) => set({ isTpp }),
 
   recordShot: (hit) =>
     set((s) => ({
