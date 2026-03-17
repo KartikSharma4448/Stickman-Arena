@@ -31,7 +31,8 @@ export default function Stickman({ player }: StickmanProps) {
     lerpedRotY.current += (player.rotY - lerpedRotY.current) * 0.2;
 
     groupRef.current.position.copy(lerpedPos.current);
-    groupRef.current.rotation.y = lerpedRotY.current;
+    // +π aligns face direction with player look direction (face is at local +Z)
+    groupRef.current.rotation.y = lerpedRotY.current + Math.PI;
 
     if (isMoving) {
       walkCycle.current += delta * 9;
