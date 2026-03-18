@@ -11,8 +11,12 @@ const GUN_DAMAGE: Record<string, { body: number; head: number; range: number }> 
 };
 
 // ─── Maps ─────────────────────────────────────────────────────────────────
-type MapId = "highlands" | "desert" | "ruins" | "bgmk";
-const MAPS: MapId[] = ["highlands", "desert", "ruins", "bgmk"];
+type MapId = "highlands" | "desert" | "ruins" | "bgmk" | "barmuda";
+const MAPS: MapId[] = ["highlands", "desert", "ruins", "bgmk", "barmuda"];
+
+const MAP_MAX_PLAYERS: Record<MapId, number> = {
+  highlands: 8, desert: 8, ruins: 8, bgmk: 8, barmuda: 30,
+};
 
 const MAP_SPAWNS: Record<MapId, Array<{ x: number; y: number; z: number }>> = {
   highlands: [
@@ -39,6 +43,29 @@ const MAP_SPAWNS: Record<MapId, Array<{ x: number; y: number; z: number }>> = {
     { x: -18, y: 0, z: -20 }, { x: 18,  y: 0, z: -20 },
     { x: -18, y: 0, z: 20  }, { x: 18,  y: 0, z: 20  },
     { x: -26, y: 0, z: -12 }, { x: 26,  y: 0, z: -12 },
+    { x: 0,   y: 0, z: 0   },
+  ],
+  barmuda: [
+    // Pochinki (center)
+    { x: -8,  y: 0, z: -4  }, { x: 4,   y: 0, z: -4  }, { x: 16,  y: 0, z: -4 },
+    { x: -8,  y: 0, z: 8   }, { x: 4,   y: 0, z: 8   }, { x: 16,  y: 0, z: 8  },
+    // School (north)
+    { x: -6,  y: 0, z: -58 }, { x: 6,   y: 0, z: -58 }, { x: 20,  y: 0, z: -58 },
+    // Military (NW)
+    { x: -54, y: 0, z: -55 }, { x: -40, y: 0, z: -55 }, { x: -54, y: 0, z: -40 },
+    // Georgopol (NE)
+    { x: 50,  y: 0, z: -52 }, { x: 38,  y: 0, z: -52 }, { x: 60,  y: 0, z: -40 },
+    // Primorsk (SW)
+    { x: -54, y: 0, z: 46  }, { x: -44, y: 0, z: 46  }, { x: -54, y: 0, z: 56 },
+    // Lipovka (SE)
+    { x: 54,  y: 0, z: 54  }, { x: 64,  y: 0, z: 54  }, { x: 54,  y: 0, z: 64 },
+    // Rozhok (E)
+    { x: 34,  y: 0, z: -4  }, { x: 44,  y: 0, z: -4  },
+    // Ferry (W)
+    { x: -36, y: 0, z: -4  }, { x: -46, y: 0, z: -4  },
+    // Novorepnoye (S)
+    { x: -8,  y: 0, z: 46  }, { x: 4,   y: 0, z: 46  }, { x: 14,  y: 0, z: 46 },
+    // Mid field
     { x: 0,   y: 0, z: 0   },
   ],
 };
@@ -115,7 +142,7 @@ function createRoom(
   const room: Room = {
     id, name,
     players: new Map(),
-    maxPlayers: MAX_PLAYERS,
+    maxPlayers: MAP_MAX_PLAYERS[selectedMap] ?? MAX_PLAYERS,
     gameStarted: false,
     map: selectedMap,
     mode,

@@ -13,10 +13,11 @@ const GUNS = [
 ];
 
 const MAPS = [
-  { id: "highlands", name: "Operation Highlands", icon: "🏔️", desc: "Sniper towers, bunkers, high ground" },
-  { id: "desert",    name: "Desert Storm",        icon: "🏜️", desc: "Open dunes, long-range duels"      },
-  { id: "ruins",     name: "Urban Ruins",          icon: "🏚️", desc: "Close-quarters building combat"    },
-  { id: "bgmk",      name: "BGMK Compound",        icon: "🏭", desc: "Military compound, warehouse CQC"  },
+  { id: "highlands", name: "Operation Highlands", icon: "🏔️", desc: "Sniper towers, bunkers, high ground",      maxPlayers: 8  },
+  { id: "desert",    name: "Desert Storm",        icon: "🏜️", desc: "Open dunes, long-range duels",             maxPlayers: 8  },
+  { id: "ruins",     name: "Urban Ruins",          icon: "🏚️", desc: "Close-quarters building combat",           maxPlayers: 8  },
+  { id: "bgmk",      name: "BGMK Compound",        icon: "🏭", desc: "Military compound, warehouse CQC",         maxPlayers: 8  },
+  { id: "barmuda",   name: "Barmuda Island",       icon: "🏝️", desc: "Massive 150×150 island — 30 players, 9 zones, Free Fire style", maxPlayers: 30 },
 ];
 
 const DAILY_MISSIONS = [
@@ -281,6 +282,7 @@ export default function MainLobby() {
                           <div style={{ fontSize: 22 }}>{m.icon}</div>
                           <div style={{ fontSize: 9, fontWeight: "bold", color: selectedMap === m.id ? "#4a9eff" : "#666", marginTop: 4 }}>{m.name}</div>
                           <div style={{ fontSize: 8, color: "#444", marginTop: 2 }}>{m.desc}</div>
+                          <div style={{ fontSize: 8, color: m.id === "barmuda" ? "#f0c060" : "#555", marginTop: 3 }}>👥 {m.maxPlayers}P max</div>
                         </button>
                       ))}
                     </div>
@@ -413,7 +415,7 @@ export default function MainLobby() {
 
               {/* Match info footer */}
               <div style={{ marginTop: 14, background: "rgba(255,255,255,0.02)", borderRadius: 10, padding: "10px 14px", fontSize: 10, color: "#333", textAlign: "center" }}>
-                🎯 40 Kills or 5 Min Timer · 8 Players Max · Solo & Squad · 4 Maps
+                🎯 40 Kills or 5 Min Timer · Solo & Squad · 5 Maps (up to 30 Players)
               </div>
             </div>
           )}
