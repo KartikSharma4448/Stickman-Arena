@@ -23,11 +23,16 @@ export default function Stickman({ player }: StickmanProps) {
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    const targetPos = new THREE.Vector3(player.x, player.y, player.z);
-    const dist = lerpedPos.current.distanceTo(targetPos);
+    const tx = player.x, ty = player.y, tz = player.z;
+    const dx = lerpedPos.current.x - tx;
+    const dy = lerpedPos.current.y - ty;
+    const dz = lerpedPos.current.z - tz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const isMoving = dist > 0.02;
 
-    lerpedPos.current.lerp(targetPos, 0.2);
+    lerpedPos.current.x += (tx - lerpedPos.current.x) * 0.2;
+    lerpedPos.current.y += (ty - lerpedPos.current.y) * 0.2;
+    lerpedPos.current.z += (tz - lerpedPos.current.z) * 0.2;
     lerpedRotY.current += (player.rotY - lerpedRotY.current) * 0.2;
 
     groupRef.current.position.copy(lerpedPos.current);

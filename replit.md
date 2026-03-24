@@ -104,6 +104,15 @@ artifacts-monorepo/
 - Object pooling for shoot events/effects
 - Shadow map limited to 512x512
 - Minimal geometry (stickman = ~6 primitives)
+- No per-frame Vector3 allocations (Stickman.tsx uses manual x/y/z math)
+- All loot/item pickups use meshBasicMaterial (no lighting calc)
+- No pointLights on any pickups
+- castShadow removed from ~50+ decorative meshes (walls, towers, tanks, trees)
+- Cylinder geometry segments reduced (12/10→6, palm trunk 7→5, fence posts 6→4)
+- InstancedMesh for zone pillars (24 instances)
+- Minimap canvas redraws at 200ms interval
+- Zone timer/radius store writes throttled (timer: 1s, radius: 0.3 delta)
+- Barmuda fog distance reduced (near 60, far 160)
 
 ## TypeScript & Composite Projects
 

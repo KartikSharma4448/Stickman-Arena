@@ -125,7 +125,7 @@ export default function Minimap({ playerX, playerZ, playerYaw }: MinimapProps) {
   }, [playerX, playerZ, playerYaw, remotePlayers, zoneRadius, zoneCenterX, zoneCenterZ, zoneTargetRadius, currentMap, pickedUpLoot]);
 
   useEffect(() => {
-    const id = setInterval(draw, 100);
+    const id = setInterval(draw, 200);
     return () => clearInterval(id);
   }, [draw]);
 

@@ -214,16 +214,17 @@ export const BARMUDA_ITEMS: ItemSpawn[] = [
 ];
 
 function ItemPickup({ item, index }: { item: ItemSpawn; index: number }) {
-  const pickedUp = useGameStore((s) => s.pickedUpItems.includes(index));
+  const pickedUpItems = useGameStore((s) => s.pickedUpItems);
   const ref = useRef<THREE.Group>(null!);
   const t = useRef(Math.random() * Math.PI * 2);
 
+  const pickedUp = pickedUpItems.indexOf(index) !== -1;
+
   useFrame((_, delta) => {
+    if (pickedUp || !ref.current) return;
     t.current += delta * 2;
-    if (ref.current) {
-      ref.current.position.y = 0.45 + Math.sin(t.current) * 0.12;
-      ref.current.rotation.y += delta * 0.8;
-    }
+    ref.current.position.y = 0.45 + Math.sin(t.current) * 0.12;
+    ref.current.rotation.y += delta * 0.8;
   });
 
   if (pickedUp) return null;
@@ -237,13 +238,13 @@ function ItemPickup({ item, index }: { item: ItemSpawn; index: number }) {
   return (
     <group position={[item.x, 0, item.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-        <ringGeometry args={[0.2, 0.4, 16]} />
+        <ringGeometry args={[0.2, 0.4, 8]} />
         <meshBasicMaterial color={item.color} transparent opacity={0.35} side={THREE.DoubleSide} />
       </mesh>
       <group ref={ref}>
         <mesh>
           <boxGeometry args={iconGeo} />
-          <meshStandardMaterial color={item.color} emissive={item.color} emissiveIntensity={0.3} />
+          <meshBasicMaterial color={item.color} />
         </mesh>
         {(item.type === "medkit" || item.type === "bandage") && (
           <mesh position={[0, 0, 0.08]}>
@@ -258,7 +259,6 @@ function ItemPickup({ item, index }: { item: ItemSpawn; index: number }) {
           </mesh>
         )}
       </group>
-      <pointLight color={item.color} intensity={0.4} distance={2} decay={2} position={[0, 0.5, 0]} />
     </group>
   );
 }
@@ -358,32 +358,32 @@ function WalkableHouse({
       </mesh>
 
       {/* Back wall */}
-      <mesh position={[0, h / 2, -d / 2 + wT / 2]} castShadow receiveShadow>
+      <mesh position={[0, h / 2, -d / 2 + wT / 2]}>
         <boxGeometry args={[w, h, wT]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* Left wall */}
-      <mesh position={[-w / 2 + wT / 2, h / 2, 0]} castShadow receiveShadow>
+      <mesh position={[-w / 2 + wT / 2, h / 2, 0]}>
         <boxGeometry args={[wT, h, d]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* Right wall */}
-      <mesh position={[w / 2 - wT / 2, h / 2, 0]} castShadow receiveShadow>
+      <mesh position={[w / 2 - wT / 2, h / 2, 0]}>
         <boxGeometry args={[wT, h, d]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* Front wall — left seg */}
-      <mesh position={[leftCx, h / 2, frontZ]} castShadow receiveShadow>
+      <mesh position={[leftCx, h / 2, frontZ]}>
         <boxGeometry args={[segW, h, wT]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* Front wall — right seg */}
-      <mesh position={[rightCx, h / 2, frontZ]} castShadow receiveShadow>
+      <mesh position={[rightCx, h / 2, frontZ]}>
         <boxGeometry args={[segW, h, wT]} />
         <meshStandardMaterial color={color} />
       </mesh>
       {/* Door frame top (lintel) */}
-      <mesh position={[0, h - 0.5, frontZ]} castShadow>
+      <mesh position={[0, h - 0.5, frontZ]}>
         <boxGeometry args={[doorW + 0.1, 1, wT + 0.02]} />
         <meshStandardMaterial color={color} />
       </mesh>
@@ -409,24 +409,23 @@ function WalkableHouse({
       {/* Second floor */}
       {hasSecondFloor && (
         <group position={[0, h, 0]}>
-          <mesh position={[0, h / 2, -d / 2 + wT / 2]} castShadow>
+          <mesh position={[0, h / 2, -d / 2 + wT / 2]}>
             <boxGeometry args={[w - 0.4, h, wT]} />
             <meshStandardMaterial color={color} />
           </mesh>
-          <mesh position={[-w / 2 + wT / 2, h / 2, 0]} castShadow>
+          <mesh position={[-w / 2 + wT / 2, h / 2, 0]}>
             <boxGeometry args={[wT, h, d - 0.4]} />
             <meshStandardMaterial color={color} />
           </mesh>
-          <mesh position={[w / 2 - wT / 2, h / 2, 0]} castShadow>
+          <mesh position={[w / 2 - wT / 2, h / 2, 0]}>
             <boxGeometry args={[wT, h, d - 0.4]} />
             <meshStandardMaterial color={color} />
           </mesh>
-          {/* Second floor front — with window opening */}
-          <mesh position={[leftCx, h / 2, frontZ]} castShadow>
+          <mesh position={[leftCx, h / 2, frontZ]}>
             <boxGeometry args={[segW - 0.2, h, wT]} />
             <meshStandardMaterial color={color} />
           </mesh>
-          <mesh position={[rightCx, h / 2, frontZ]} castShadow>
+          <mesh position={[rightCx, h / 2, frontZ]}>
             <boxGeometry args={[segW - 0.2, h, wT]} />
             <meshStandardMaterial color={color} />
           </mesh>
@@ -451,8 +450,8 @@ function PalmTree({ x, z }: { x: number; z: number }) {
   });
   return (
     <group position={[x, 0, z]} ref={ref}>
-      <mesh position={[0, 3, 0]} castShadow>
-        <cylinderGeometry args={[0.18, 0.28, 6, 7]} />
+      <mesh position={[0, 3, 0]}>
+        <cylinderGeometry args={[0.18, 0.28, 6, 5]} />
         <meshStandardMaterial color="#8b6914" roughness={0.9} />
       </mesh>
       {[0, 1, 2, 3, 4, 5].map((i) => {
@@ -472,7 +471,7 @@ function PalmTree({ x, z }: { x: number; z: number }) {
 
 function Rock({ x, z, s = 1 }: { x: number; z: number; s?: number }) {
   return (
-    <mesh position={[x, s * 0.4, z]} castShadow receiveShadow>
+    <mesh position={[x, s * 0.4, z]}>
       <boxGeometry args={[s * 1.4, s * 0.8, s * 1.2]} />
       <meshStandardMaterial color="#888" roughness={0.95} />
     </mesh>
@@ -483,7 +482,7 @@ function Container({ x, z, rotY = 0, color = "#2d6a2d" }: {
   x: number; z: number; rotY?: number; color?: string;
 }) {
   return (
-    <mesh position={[x, 1.4, z]} rotation={[0, rotY, 0]} castShadow receiveShadow>
+    <mesh position={[x, 1.4, z]} rotation={[0, rotY, 0]}>
       <boxGeometry args={[6, 2.8, 2.4]} />
       <meshStandardMaterial color={color} metalness={0.4} roughness={0.6} />
     </mesh>
@@ -493,11 +492,11 @@ function Container({ x, z, rotY = 0, color = "#2d6a2d" }: {
 function Watchtower({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, 5, 0]} castShadow>
+      <mesh position={[0, 5, 0]}>
         <boxGeometry args={[2.5, 10, 2.5]} />
         <meshStandardMaterial color="#8b7355" />
       </mesh>
-      <mesh position={[0, 10.5, 0]} castShadow>
+      <mesh position={[0, 10.5, 0]}>
         <boxGeometry args={[4.5, 0.4, 4.5]} />
         <meshStandardMaterial color="#7a6245" />
       </mesh>
@@ -518,46 +517,33 @@ function LootPickup({
   item: LootItem;
   index: number;
 }) {
-  const pickedUp = useGameStore((s) => s.pickedUpLoot.includes(index));
+  const pickedUpLoot = useGameStore((s) => s.pickedUpLoot);
   const ref = useRef<THREE.Group>(null!);
   const t = useRef(Math.random() * Math.PI * 2);
 
+  const pickedUp = pickedUpLoot.indexOf(index) !== -1;
+
   useFrame((_, delta) => {
+    if (pickedUp || !ref.current) return;
     t.current += delta * 1.5;
-    if (ref.current) {
-      ref.current.position.y = 0.6 + Math.sin(t.current) * 0.18;
-      ref.current.rotation.y += delta * 1.2;
-    }
+    ref.current.position.y = 0.6 + Math.sin(t.current) * 0.18;
+    ref.current.rotation.y += delta * 1.2;
   });
 
   if (pickedUp) return null;
 
-  const label = item.gun === "AK-47" ? "AK" :
-                item.gun === "Sniper" ? "SN" :
-                item.gun === "Shotgun" ? "SH" :
-                item.gun === "SMG" ? "UZ" : "PT";
-
   return (
     <group position={[item.x, 0, item.z]}>
-      {/* Ground glow ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-        <ringGeometry args={[0.3, 0.55, 24]} />
+        <ringGeometry args={[0.3, 0.55, 8]} />
         <meshBasicMaterial color={item.color} transparent opacity={0.4} side={THREE.DoubleSide} />
       </mesh>
-      {/* Floating gun box */}
       <group ref={ref}>
-        <mesh castShadow>
+        <mesh>
           <boxGeometry args={[0.5, 0.18, 0.14]} />
-          <meshStandardMaterial color={item.color} metalness={0.6} roughness={0.3} emissive={item.color} emissiveIntensity={0.25} />
-        </mesh>
-        {/* Label plane */}
-        <mesh position={[0, 0.15, 0.08]}>
-          <planeGeometry args={[0.4, 0.14]} />
-          <meshBasicMaterial color="#000" transparent opacity={0.5} side={THREE.DoubleSide} />
+          <meshBasicMaterial color={item.color} />
         </mesh>
       </group>
-      {/* Point light glow */}
-      <pointLight color={item.color} intensity={0.6} distance={2.5} decay={2} position={[0, 0.7, 0]} />
     </group>
   );
 }
@@ -660,7 +646,7 @@ export default function Arena5() {
       <WalkableHouse x={4}   z={14}  w={7} d={6} hasSecondFloor color="#ccc0a5" />
       <WalkableHouse x={15}  z={14}  w={7} d={7}               color="#d8c9a6" />
       {/* Shop strip */}
-      <mesh position={[-2, 1.5, -18]} castShadow>
+      <mesh position={[-2, 1.5, -18]}>
         <boxGeometry args={[28, 3, 5]} />
         <meshStandardMaterial color="#b8a085" />
       </mesh>
@@ -690,7 +676,7 @@ export default function Arena5() {
         // Front wall right
         [5.8, 4, -46.16, 10.4, 8, 0.32],
       ].map(([cx, cy, cz, w, h, d], i) => (
-        <mesh key={`sch${i}`} position={[cx as number, cy as number, cz as number]} castShadow receiveShadow>
+        <mesh key={`sch${i}`} position={[cx as number, cy as number, cz as number]}>
           <boxGeometry args={[w as number, h as number, d as number]} />
           <meshStandardMaterial color="#e8dcc8" />
         </mesh>
@@ -700,7 +686,7 @@ export default function Arena5() {
         <meshStandardMaterial color="#6b4c2a" />
       </mesh>
       {/* Annex building */}
-      <mesh position={[16, 4, -56]} castShadow>
+      <mesh position={[16, 4, -56]}>
         <boxGeometry args={[8, 8, 20]} />
         <meshStandardMaterial color="#e0d4bc" />
       </mesh>
@@ -721,7 +707,7 @@ export default function Arena5() {
       <WalkableHouse x={-36} z={-50} w={12} d={10} h={6} color="#8a9a80" />
       <WalkableHouse x={-52} z={-35} w={10} d={8}  h={5} color="#7a8570" />
       {/* Bunker */}
-      <mesh position={[-42, 1.5, -40]} castShadow>
+      <mesh position={[-42, 1.5, -40]}>
         <boxGeometry args={[8, 3, 6]} />
         <meshStandardMaterial color="#6a7060" />
       </mesh>
@@ -753,8 +739,8 @@ export default function Arena5() {
       <WalkableHouse x={35} z={-52} w={12} d={10} h={7} color="#8a8a9a" />
       {/* Storage tanks */}
       {[[58,-35],[62,-35],[58,-40],[62,-40]].map(([cx,cz],i) => (
-        <mesh key={`tk${i}`} position={[cx, 3.5, cz]} castShadow>
-          <cylinderGeometry args={[2.5, 2.5, 7, 12]} />
+        <mesh key={`tk${i}`} position={[cx, 3.5, cz]}>
+          <cylinderGeometry args={[2.5, 2.5, 7, 6]} />
           <meshStandardMaterial color="#5a6a7a" metalness={0.5} />
         </mesh>
       ))}
@@ -763,11 +749,11 @@ export default function Arena5() {
       <Container x={58} z={-43} rotY={Math.PI / 2} color="#2d4a6a" />
       <Container x={44} z={-45} color="#6a5a2d" />
       {/* Crane */}
-      <mesh position={[65, 8, -50]} castShadow>
+      <mesh position={[65, 8, -50]}>
         <boxGeometry args={[2, 16, 2]} />
         <meshStandardMaterial color="#8a7a3a" metalness={0.4} />
       </mesh>
-      <mesh position={[65, 16, -42]} castShadow>
+      <mesh position={[65, 16, -42]}>
         <boxGeometry args={[2, 1.5, 18]} />
         <meshStandardMaterial color="#8a7a3a" metalness={0.4} />
       </mesh>
@@ -780,7 +766,7 @@ export default function Arena5() {
       <WalkableHouse x={-58} z={58} w={7} d={6}               color="#d4c5a9" />
       <WalkableHouse x={-48} z={62} w={7} d={6}               color="#ccc0a5" />
       {/* Pier */}
-      <mesh position={[-68, 0.3, 55]} castShadow>
+      <mesh position={[-68, 0.3, 55]}>
         <boxGeometry args={[12, 0.6, 4]} />
         <meshStandardMaterial color="#8b6914" />
       </mesh>
@@ -789,7 +775,7 @@ export default function Arena5() {
       <WalkableHouse x={52} z={50} w={10} d={8} hasSecondFloor color="#c8b090" />
       <WalkableHouse x={65} z={50} w={7}  d={6}               color="#d0b898" />
       {/* Barn */}
-      <mesh position={[55, 4.5, 62]} castShadow>
+      <mesh position={[55, 4.5, 62]}>
         <boxGeometry args={[14, 9, 10]} />
         <meshStandardMaterial color="#8b4513" />
       </mesh>
@@ -798,8 +784,8 @@ export default function Arena5() {
         <meshStandardMaterial color="#6b3010" />
       </mesh>
       {/* Silo */}
-      <mesh position={[65, 5, 62]} castShadow>
-        <cylinderGeometry args={[2.5, 2.5, 10, 10]} />
+      <mesh position={[65, 5, 62]}>
+        <cylinderGeometry args={[2.5, 2.5, 10, 6]} />
         <meshStandardMaterial color="#c8c0a0" />
       </mesh>
       {/* Farm fence */}
@@ -828,7 +814,7 @@ export default function Arena5() {
       <WalkableHouse x={-46} z={-6} w={8} d={6}               color="#c8c4aa" />
       <WalkableHouse x={-35} z={6}  w={7} d={6} hasSecondFloor color="#d4c8b0" />
       {/* Ferry terminal */}
-      <mesh position={[-58, 2.5, 0]} castShadow>
+      <mesh position={[-58, 2.5, 0]}>
         <boxGeometry args={[10, 5, 14]} />
         <meshStandardMaterial color="#c0b090" />
       </mesh>
@@ -847,7 +833,7 @@ export default function Arena5() {
 
       {/* ══ MID-MAP LANDMARKS ══════════════════════════════════════════════ */}
       {/* Gas station */}
-      <mesh position={[0, 1.5, -30]} castShadow>
+      <mesh position={[0, 1.5, -30]}>
         <boxGeometry args={[10, 3, 6]} />
         <meshStandardMaterial color="#d8d0b8" />
       </mesh>
@@ -863,11 +849,11 @@ export default function Arena5() {
         </mesh>
       ))}
       {/* Church */}
-      <mesh position={[-22, 5, -22]} castShadow>
+      <mesh position={[-22, 5, -22]}>
         <boxGeometry args={[8, 10, 8]} />
         <meshStandardMaterial color="#ddd8cc" />
       </mesh>
-      <mesh position={[-22, 11.5, -22]} castShadow>
+      <mesh position={[-22, 11.5, -22]}>
         <coneGeometry args={[3, 5, 4]} />
         <meshStandardMaterial color="#8a4a2a" />
       </mesh>
@@ -876,12 +862,12 @@ export default function Arena5() {
         <meshStandardMaterial color="#888" />
       </mesh>
       {/* Water tower */}
-      <mesh position={[22, 6, 30]} castShadow>
-        <cylinderGeometry args={[2, 2, 6, 8]} />
+      <mesh position={[22, 6, 30]}>
+        <cylinderGeometry args={[2, 2, 6, 6]} />
         <meshStandardMaterial color="#c8b890" />
       </mesh>
       <mesh position={[22, 3, 30]}>
-        <cylinderGeometry args={[0.2, 0.2, 6, 6]} />
+        <cylinderGeometry args={[0.2, 0.2, 6, 4]} />
         <meshStandardMaterial color="#888" />
       </mesh>
 
@@ -928,13 +914,13 @@ export default function Arena5() {
         intensity={1.8}
         color="#fff8e0"
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[512, 512]}
         shadow-camera-near={1}
-        shadow-camera-far={300}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
+        shadow-camera-far={150}
+        shadow-camera-left={-80}
+        shadow-camera-right={80}
+        shadow-camera-top={80}
+        shadow-camera-bottom={-80}
       />
       <hemisphereLight args={["#87ceeb", "#4a8a38", 0.4]} />
     </group>

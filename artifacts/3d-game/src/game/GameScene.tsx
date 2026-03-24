@@ -18,7 +18,7 @@ const MAP_FOG: Record<string, { bg: string; fog: string; near: number; far: numb
   desert:    { bg: "#e8c080", fog: "#c8a060", near: 40, far: 120 },
   ruins:     { bg: "#3a3f48", fog: "#30353e", near: 20, far: 60  },
   bgmk:      { bg: "#a8bca0", fog: "#9aae92", near: 45, far: 130 },
-  barmuda:   { bg: "#87ceeb", fog: "#aadaf0", near: 80, far: 220 },
+  barmuda:   { bg: "#87ceeb", fog: "#aadaf0", near: 60, far: 160 },
 };
 
 export default function GameScene() {
