@@ -84,6 +84,7 @@ artifacts-monorepo/
 - **Players alive counter** — shown in top bar
 - **Mobile controls** — Sprint, Crouch, Heal, weapon slot 1/2 touch buttons
 - Helicopter visual flies across the map during drop phase
+- **Secret Aimbot** — Shift+I to toggle auto-aim at nearest enemy head, "AIM LOCK" indicator shown below crosshair
 
 ### Key Files (Legendary Update)
 - `src/game/store.ts` — Full Zustand store with zone, armor, sprint, weapon slots, kill streaks, inventory

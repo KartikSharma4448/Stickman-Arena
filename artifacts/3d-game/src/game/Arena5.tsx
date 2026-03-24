@@ -126,6 +126,15 @@ export const BARMUDA_BOXES: Array<{
   { cx:   0, cy: 1.5,  cz: -30, w: 10, h: 3,  d: 6  },  // gas station
   { cx: -22, cy: 5,    cz: -22, w:  8, h: 10, d: 8  },  // church
   { cx:  22, cy: 6,    cz:  30, w:  3, h: 12, d: 3  },  // water tower
+
+  // ── Barn roof (walkable roof collision)
+  { cx: 55, cy: 9.4, cz: 62, w: 14.5, h: 1, d: 10.5 },
+  // Gas station canopy
+  { cx: 0, cy: 3.5, cz: -30, w: 12, h: 0.6, d: 8 },
+  // Ferry pier
+  { cx: -58, cy: 0.3, cz: 0, w: 10, h: 0.6, d: 14 },
+  // Primorsk pier
+  { cx: -68, cy: 0.3, cz: 55, w: 12, h: 0.6, d: 4 },
 ];
 
 // ── Loot spawns: guns placed on the map for players to pick up ─────────────

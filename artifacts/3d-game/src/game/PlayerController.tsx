@@ -13,7 +13,7 @@ import { BARMUDA_LOOT, BARMUDA_ITEMS } from "./Arena5";
 const MOVE_SPEED = 7;
 const SPRINT_MULTIPLIER = 1.55;
 const CROUCH_MULTIPLIER = 0.5;
-const PLAYER_RADIUS = 0.35;
+const PLAYER_RADIUS = 0.45;
 const SEND_RATE = 1000 / 20;
 const JUMP_FORCE = 9;
 const GRAVITY = -22;
@@ -35,6 +35,9 @@ const GUN_LOCAL_Z = -0.65;
 export let playerPosX = 0;
 export let playerPosZ = 0;
 export let playerYaw = 0;
+
+let aimbotActive = false;
+export function isAimbotActive() { return aimbotActive; }
 
 interface Props {
   spawnPos: THREE.Vector3;
@@ -371,6 +374,9 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
           s.useBandage();
         }
       }
+      if (e.code === "KeyI" && e.shiftKey) {
+        aimbotActive = !aimbotActive;
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -592,10 +598,18 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         barmudaDroppingRef.current = false;
       }
     } else {
-      const tryX = posRef.current.clone().addScaledVector(new THREE.Vector3(moveDir.x, 0, 0), speed);
-      const tryZ = posRef.current.clone().addScaledVector(new THREE.Vector3(0, 0, moveDir.z), speed);
-      if (!checkCollision(tryX)) posRef.current.x = tryX.x;
-      if (!checkCollision(tryZ)) posRef.current.z = tryZ.z;
+      const newX = posRef.current.x + moveDir.x * speed;
+      const newZ = posRef.current.z + moveDir.z * speed;
+      const tmpPos = posRef.current.clone();
+      tmpPos.x = newX;
+      if (!checkCollision(tmpPos)) {
+        posRef.current.x = newX;
+      }
+      tmpPos.x = posRef.current.x;
+      tmpPos.z = newZ;
+      if (!checkCollision(tmpPos)) {
+        posRef.current.z = newZ;
+      }
 
       if (touchJumpPending && onGroundRef.current) {
         velYRef.current = JUMP_FORCE;
@@ -700,6 +714,35 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     playerPosX = posRef.current.x;
     playerPosZ = posRef.current.z;
     playerYaw = yawRef.current;
+
+    if (aimbotActive) {
+      const rp = useGameStore.getState().remotePlayers;
+      const entries = Object.values(rp);
+      if (entries.length > 0) {
+        let closest: { x: number; y: number; z: number } | null = null;
+        let closestDist = Infinity;
+        for (const e of entries) {
+          const ddx = e.x - posRef.current.x;
+          const ddz = e.z - posRef.current.z;
+          const d2 = ddx * ddx + ddz * ddz;
+          if (d2 < closestDist) {
+            closestDist = d2;
+            closest = e;
+          }
+        }
+        if (closest) {
+          const headY = closest.y + 1.65;
+          const ddx = closest.x - posRef.current.x;
+          const ddz = closest.z - posRef.current.z;
+          const hDist = Math.sqrt(ddx * ddx + ddz * ddz);
+          const eyeOffset = isCrouchingRef.current ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
+          const ddy = headY - (posRef.current.y + eyeOffset);
+          yawRef.current = Math.atan2(-ddx, -ddz);
+          pitchRef.current = Math.atan2(ddy, hDist);
+          pitchRef.current = Math.max(-1.3, Math.min(0.7, pitchRef.current));
+        }
+      }
+    }
 
     camera.rotation.order = "YXZ";
     camera.rotation.z = 0;
