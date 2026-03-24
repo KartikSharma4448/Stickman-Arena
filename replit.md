@@ -70,11 +70,29 @@ artifacts-monorepo/
 - Zones: Pochinki (center), School, Military Base, Georgopol, Primorsk, Lipovka, Rozhok, Ferry Pier, Novorepnoye
 - **Walkable building interiors** — houses have open doorways with 4-wall collision system (gap at front)
 - **Helicopter drop** — players spawn at altitude 80m, parachute down to the island (parachute canopy visible)
-- **Loot system** — 27 gun pickups scattered across the map (glowing floating items); players start unarmed
-- **Pick up guns** — walk near a weapon and press E (or tap button on mobile)
+- **Loot system** — 27 gun pickups + 29 item pickups (medkits, bandages, armor, ammo) scattered across map
+- **Pick up guns/items** — walk near and press E (or tap button on mobile)
 - **2 lives system** — each player gets only 2 lives; after both are used, "ELIMINATED" screen shows
-- **Barmuda HUD** — lives display, parachute altitude indicator, "Find a gun!" warning, loot pickup prompt
+- **Shrinking zone** — 6 phases with increasing damage (ZoneSystem.tsx), blue ring + red danger zone visual, wall pillars
+- **Minimap** — circular minimap (Minimap.tsx) showing player triangle, FOV cone, zone rings, enemy dots, coordinates
+- **Sprint/Crouch** — Shift to sprint (1.55x speed, drains stamina), C to crouch (0.5x speed, lower camera)
+- **Armor system** — pick up armor items for damage reduction, shown in HUD
+- **Dual weapon slots** — carry 2 guns, switch with 1/2 keys, weapon slot UI in HUD
+- **Kill streaks** — First Blood, Double Kill, Triple Kill, Quad Kill, Rampage announcements
+- **Damage direction** — red arrow indicator pointing toward attacker
+- **Inventory** — medkits (F to heal +50hp), bandages (+15hp up to 75), ammo boxes
+- **Players alive counter** — shown in top bar
+- **Mobile controls** — Sprint, Crouch, Heal, weapon slot 1/2 touch buttons
 - Helicopter visual flies across the map during drop phase
+
+### Key Files (Legendary Update)
+- `src/game/store.ts` — Full Zustand store with zone, armor, sprint, weapon slots, kill streaks, inventory
+- `src/game/ZoneSystem.tsx` — 3D shrinking zone with 6 phases, ring geometry updates per frame
+- `src/game/Minimap.tsx` — Canvas-based circular minimap with 100ms redraw interval
+- `src/game/PlayerController.tsx` — Sprint/crouch/stamina, zone damage ticks, item proximity scan
+- `src/game/Arena5.tsx` — BARMUDA_LOOT (guns) + BARMUDA_ITEMS (medkits/armor/etc) with ItemPickup components
+- `src/game/HUD.tsx` — Armor bar, weapon slots, kill streak banners, damage arrows, zone info, inventory bar
+- `src/game/TouchControls.tsx` — Sprint, crouch, heal, weapon switch mobile buttons
 
 ### Performance Optimizations
 - `powerPreference: "low-power"` WebGL

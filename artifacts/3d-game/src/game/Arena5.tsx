@@ -173,6 +173,96 @@ export const BARMUDA_LOOT: LootItem[] = [
   { x:   3, z:  56, gun: "AK-47",  color: "#ff6b35" },
 ];
 
+// ── Item pickups (medkits, bandages, armor, ammo) ─────────────────────────
+export interface ItemSpawn {
+  x: number;
+  z: number;
+  type: "medkit" | "bandage" | "armor" | "ammo";
+  color: string;
+  label: string;
+}
+export const BARMUDA_ITEMS: ItemSpawn[] = [
+  { x: -8, z: -10, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 5, z: -6, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 14, z: 2, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: -10, z: 8, type: "ammo", color: "#ffaa00", label: "AMO" },
+  { x: 2, z: 10, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 16, z: 16, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 0, z: -55, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 14, z: -50, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: -50, z: -48, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: -38, z: -48, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: -54, z: -38, type: "ammo", color: "#ffaa00", label: "AMO" },
+  { x: 50, z: -46, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 38, z: -50, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 46, z: -44, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: -50, z: 44, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: -44, z: 54, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: -56, z: 60, type: "ammo", color: "#ffaa00", label: "AMO" },
+  { x: 54, z: 52, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 62, z: 50, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: 34, z: -4, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 40, z: 4, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: -34, z: -4, type: "ammo", color: "#ffaa00", label: "AMO" },
+  { x: -44, z: 4, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: -8, z: 44, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 4, z: 52, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: 12, z: 44, type: "armor", color: "#4488ff", label: "ARM" },
+  { x: 0, z: -28, type: "medkit", color: "#ff4444", label: "MED" },
+  { x: -20, z: -20, type: "bandage", color: "#ff8888", label: "BND" },
+  { x: 20, z: 28, type: "ammo", color: "#ffaa00", label: "AMO" },
+];
+
+function ItemPickup({ item, index }: { item: ItemSpawn; index: number }) {
+  const pickedUp = useGameStore((s) => s.pickedUpItems.includes(index));
+  const ref = useRef<THREE.Group>(null!);
+  const t = useRef(Math.random() * Math.PI * 2);
+
+  useFrame((_, delta) => {
+    t.current += delta * 2;
+    if (ref.current) {
+      ref.current.position.y = 0.45 + Math.sin(t.current) * 0.12;
+      ref.current.rotation.y += delta * 0.8;
+    }
+  });
+
+  if (pickedUp) return null;
+
+  const iconGeo = item.type === "medkit" || item.type === "bandage"
+    ? [0.3, 0.3, 0.15] as [number, number, number]
+    : item.type === "armor"
+    ? [0.35, 0.28, 0.12] as [number, number, number]
+    : [0.25, 0.2, 0.2] as [number, number, number];
+
+  return (
+    <group position={[item.x, 0, item.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[0.2, 0.4, 16]} />
+        <meshBasicMaterial color={item.color} transparent opacity={0.35} side={THREE.DoubleSide} />
+      </mesh>
+      <group ref={ref}>
+        <mesh>
+          <boxGeometry args={iconGeo} />
+          <meshStandardMaterial color={item.color} emissive={item.color} emissiveIntensity={0.3} />
+        </mesh>
+        {(item.type === "medkit" || item.type === "bandage") && (
+          <mesh position={[0, 0, 0.08]}>
+            <boxGeometry args={[0.08, 0.18, 0.01]} />
+            <meshBasicMaterial color="#fff" />
+          </mesh>
+        )}
+        {(item.type === "medkit" || item.type === "bandage") && (
+          <mesh position={[0, 0, 0.08]}>
+            <boxGeometry args={[0.18, 0.08, 0.01]} />
+            <meshBasicMaterial color="#fff" />
+          </mesh>
+        )}
+      </group>
+      <pointLight color={item.color} intensity={0.4} distance={2} decay={2} position={[0, 0.5, 0]} />
+    </group>
+  );
+}
+
 // ── Parachute / helicopter drop animation ─────────────────────────────────
 function Helicopter({ dropping }: { dropping: boolean }) {
   const ref = useRef<THREE.Group>(null!);
@@ -820,7 +910,12 @@ export default function Arena5() {
 
       {/* ══ LOOT PICKUPS ══════════════════════════════════════════════════ */}
       {BARMUDA_LOOT.map((item, i) => (
-        <LootPickup key={i} item={item} index={i} />
+        <LootPickup key={`loot${i}`} item={item} index={i} />
+      ))}
+
+      {/* ══ ITEM PICKUPS (medkits, armor, etc) ═══════════════════════════ */}
+      {BARMUDA_ITEMS.map((item, i) => (
+        <ItemPickup key={`item${i}`} item={item} index={i} />
       ))}
 
       {/* ══ HELICOPTER ═════════════════════════════════════════════════════ */}

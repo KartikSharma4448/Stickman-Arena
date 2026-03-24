@@ -6,6 +6,7 @@ import Arena2 from "./Arena2";
 import Arena3 from "./Arena3";
 import Arena4 from "./Arena4";
 import Arena5 from "./Arena5";
+import ZoneSystem from "./ZoneSystem";
 import Stickman from "./Stickman";
 import PlayerController from "./PlayerController";
 import Effects, { addLocalShot } from "./Effects";
@@ -110,6 +111,7 @@ export default function GameScene() {
       {currentMap === "ruins"     && <Arena3 />}
       {currentMap === "bgmk"      && <Arena4 />}
       {currentMap === "barmuda"   && <Arena5 />}
+      {currentMap === "barmuda"   && <ZoneSystem />}
       {!["highlands","desert","ruins","bgmk","barmuda"].includes(currentMap) && <Arena />}
 
       {showPlayer && (

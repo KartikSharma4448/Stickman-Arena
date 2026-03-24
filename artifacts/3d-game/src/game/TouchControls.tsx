@@ -19,6 +19,10 @@ export function clearTouchShoot() { touchShootPending = false; }
 export let touchScopePending = false;
 export let touchScopeActive = false;
 
+export let touchSprintActive = false;
+export let touchCrouchPending = false;
+export function clearTouchCrouch() { touchCrouchPending = false; }
+
 export default function TouchControls({ onShoot }: { onShoot: () => void }) {
   const moveKnobRef = useRef<HTMLDivElement>(null);
   const lookBaseRef = useRef<HTMLDivElement>(null);
@@ -113,7 +117,6 @@ export default function TouchControls({ onShoot }: { onShoot: () => void }) {
 
   return (
     <>
-      {/* ─── MOVE JOYSTICK (left) ─── */}
       <div style={{ position: "fixed", left: 24, bottom: 60, zIndex: 100 }}>
         <div style={{
           width: 110, height: 110, borderRadius: "50%",
@@ -130,7 +133,6 @@ export default function TouchControls({ onShoot }: { onShoot: () => void }) {
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, textAlign: "center", marginTop: 4, letterSpacing: 1 }}>MOVE</div>
       </div>
 
-      {/* ─── LOOK JOYSTICK BASE (follows touch) ─── */}
       <div ref={lookBaseRef} style={{
         position: "fixed", width: 100, height: 100, borderRadius: "50%",
         background: "rgba(255,255,255,0.08)",
@@ -139,7 +141,6 @@ export default function TouchControls({ onShoot }: { onShoot: () => void }) {
         opacity: 0, transition: "opacity 0.1s",
       }} />
 
-      {/* ─── SHOOT button (right side, big) ─── */}
       <div
         onTouchStart={(e) => { e.preventDefault(); onShoot(); }}
         style={{
@@ -151,32 +152,29 @@ export default function TouchControls({ onShoot }: { onShoot: () => void }) {
         FIRE
       </div>
 
-      {/* ─── JUMP button ─── */}
       <div
         onTouchStart={(e) => { e.preventDefault(); touchJumpPending = true; }}
         style={{
           ...btnStyle("rgba(80,160,255,0.75)"),
-          right: 120, bottom: 130,
-          width: 58, height: 58, fontSize: 10,
+          right: 120, bottom: 150,
+          width: 52, height: 52, fontSize: 9,
         }}
       >
         JUMP
       </div>
 
-      {/* ─── SCOPE / ADS button ─── */}
       <div
         onTouchStart={(e) => { e.preventDefault(); touchScopeActive = true; }}
         onTouchEnd={(e) => { e.preventDefault(); touchScopeActive = false; }}
         style={{
           ...btnStyle("rgba(60,200,120,0.75)"),
-          right: 120, bottom: 60,
-          width: 58, height: 58, fontSize: 9,
+          right: 120, bottom: 80,
+          width: 52, height: 52, fontSize: 8,
         }}
       >
         ADS
       </div>
 
-      {/* ─── RELOAD button ─── */}
       <div
         onTouchStart={(e) => {
           e.preventDefault();
@@ -184,11 +182,80 @@ export default function TouchControls({ onShoot }: { onShoot: () => void }) {
         }}
         style={{
           ...btnStyle("rgba(255,180,40,0.7)"),
-          right: 200, bottom: 80,
-          width: 52, height: 52, fontSize: 9,
+          right: 190, bottom: 110,
+          width: 48, height: 48, fontSize: 8,
         }}
       >
-        RELOAD
+        RLOAD
+      </div>
+
+      <div
+        onTouchStart={(e) => { e.preventDefault(); touchSprintActive = true; }}
+        onTouchEnd={(e) => { e.preventDefault(); touchSprintActive = false; }}
+        style={{
+          ...btnStyle("rgba(255,100,255,0.7)"),
+          left: 150, bottom: 80,
+          width: 48, height: 48, fontSize: 8,
+        }}
+      >
+        SPRINT
+      </div>
+
+      <div
+        onTouchStart={(e) => { e.preventDefault(); touchCrouchPending = true; }}
+        style={{
+          ...btnStyle("rgba(150,150,255,0.7)"),
+          left: 150, bottom: 140,
+          width: 48, height: 48, fontSize: 8,
+        }}
+      >
+        CROUCH
+      </div>
+
+      <div
+        onTouchStart={(e) => {
+          e.preventDefault();
+          window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyF" }));
+        }}
+        style={{
+          ...btnStyle("rgba(80,220,80,0.7)"),
+          right: 190, bottom: 170,
+          width: 48, height: 48, fontSize: 7,
+        }}
+      >
+        HEAL
+      </div>
+
+      <div style={{
+        position: "fixed", right: 240, bottom: 80, zIndex: 100,
+        display: "flex", flexDirection: "column", gap: 4,
+      }}>
+        <div
+          onTouchStart={(e) => {
+            e.preventDefault();
+            window.dispatchEvent(new KeyboardEvent("keydown", { code: "Digit1" }));
+          }}
+          style={{
+            ...btnStyle("rgba(255,255,255,0.25)"),
+            position: "relative",
+            width: 42, height: 42, fontSize: 14,
+          }}
+        >
+          1
+        </div>
+        <div
+          onTouchStart={(e) => {
+            e.preventDefault();
+            window.dispatchEvent(new KeyboardEvent("keydown", { code: "Digit2" }));
+          }}
+          style={{
+            ...btnStyle("rgba(255,255,255,0.25)"),
+            position: "relative",
+            width: 42, height: 42, fontSize: 14,
+          }}
+        >
+          2
+        </div>
       </div>
     </>
   );

@@ -100,7 +100,6 @@ interface GameState {
   matchLeaderboard: Array<{ id: string; name: string; kills: number; deaths: number; teamId: number }>;
   roomCode: string | null;
 
-  // ── Barmuda Battle Royale ──────────────────────────────────────────────────
   hasGun: boolean;
   livesLeft: number;
   barmudaDropping: boolean;
@@ -109,6 +108,30 @@ interface GameState {
   nearbyLootIndex: number | null;
   pickedUpLoot: number[];
   eliminated: boolean;
+
+  armor: number;
+  isSprinting: boolean;
+  isCrouching: boolean;
+  stamina: number;
+  weaponSlots: [string | null, string | null];
+  activeSlot: number;
+  zonePhase: number;
+  zoneTimer: number;
+  zoneCenterX: number;
+  zoneCenterZ: number;
+  zoneRadius: number;
+  zoneTargetRadius: number;
+  zoneShrinking: boolean;
+  inZone: boolean;
+  killStreak: number;
+  killStreakMsg: string | null;
+  damageDir: number | null;
+  playersAlive: number;
+  inventory: { medkits: number; bandages: number; ammoBoxes: number };
+  nearbyItemType: string | null;
+  nearbyItemIndex: number | null;
+  pickedUpItems: number[];
+  boostBar: number;
 
   setPhase: (p: GamePhase) => void;
   setMyId: (id: string) => void;
@@ -152,7 +175,6 @@ interface GameState {
   addCoins: (amount: number) => void;
   buyItem: (itemId: string, price: number) => void;
 
-  // ── Barmuda setters ────────────────────────────────────────────────────────
   setHasGun: (v: boolean) => void;
   setLivesLeft: (v: number) => void;
   setBarmudaDropping: (v: boolean) => void;
@@ -161,10 +183,43 @@ interface GameState {
   pickupLoot: (idx: number, gunType: string) => void;
   setEliminated: (v: boolean) => void;
   resetBarmuda: () => void;
+
+  setArmor: (v: number) => void;
+  setIsSprinting: (v: boolean) => void;
+  setIsCrouching: (v: boolean) => void;
+  setStamina: (v: number) => void;
+  setActiveSlot: (slot: number) => void;
+  switchWeapon: (slot: number) => void;
+  setZonePhase: (p: number) => void;
+  setZoneTimer: (t: number) => void;
+  setZoneRadius: (r: number) => void;
+  setZoneTargetRadius: (r: number) => void;
+  setZoneShrinking: (v: boolean) => void;
+  setZoneCenter: (x: number, z: number) => void;
+  setInZone: (v: boolean) => void;
+  setKillStreak: (v: number) => void;
+  setKillStreakMsg: (msg: string | null) => void;
+  setDamageDir: (d: number | null) => void;
+  setPlayersAlive: (n: number) => void;
+  addInventory: (type: "medkits" | "bandages" | "ammoBoxes", count: number) => void;
+  useMedkit: () => void;
+  useBandage: () => void;
+  setNearbyItem: (type: string | null, idx: number | null) => void;
+  pickupItem: (idx: number) => void;
+  setBoostBar: (v: number) => void;
 }
 
 let killFeedIdCounter = 0;
 let shootEventIdCounter = 0;
+
+export const ZONE_PHASES = [
+  { radius: 74, waitTime: 60, shrinkTime: 30, damage: 1 },
+  { radius: 55, waitTime: 45, shrinkTime: 25, damage: 2 },
+  { radius: 38, waitTime: 35, shrinkTime: 20, damage: 3 },
+  { radius: 22, waitTime: 25, shrinkTime: 15, damage: 5 },
+  { radius: 10, waitTime: 15, shrinkTime: 10, damage: 8 },
+  { radius: 0, waitTime: 0, shrinkTime: 10, damage: 15 },
+];
 
 export const useGameStore = create<GameState>((set) => ({
   phase: "splash",
@@ -217,6 +272,30 @@ export const useGameStore = create<GameState>((set) => ({
   pickedUpLoot: [],
   eliminated: false,
 
+  armor: 0,
+  isSprinting: false,
+  isCrouching: false,
+  stamina: 100,
+  weaponSlots: [null, null],
+  activeSlot: 0,
+  zonePhase: 0,
+  zoneTimer: 60,
+  zoneCenterX: 0,
+  zoneCenterZ: 0,
+  zoneRadius: 74,
+  zoneTargetRadius: 74,
+  zoneShrinking: false,
+  inZone: true,
+  killStreak: 0,
+  killStreakMsg: null,
+  damageDir: null,
+  playersAlive: 1,
+  inventory: { medkits: 0, bandages: 0, ammoBoxes: 0 },
+  nearbyItemType: null,
+  nearbyItemIndex: null,
+  pickedUpItems: [],
+  boostBar: 0,
+
   setPhase: (phase) => set({ phase }),
   setMyId: (myId) => set({ myId }),
   setMyName: (myName) => set({ myName }),
@@ -225,8 +304,17 @@ export const useGameStore = create<GameState>((set) => ({
   setAmmo: (ammo) => set({ ammo }),
   setIsReloading: (isReloading) => set({ isReloading }),
   reload: () => set((s) => ({ ammo: s.maxAmmo, isReloading: false })),
-  addKill: () => set((s) => ({ kills: s.kills + 1, coins: s.coins + 10 })),
-  addDeath: () => set((s) => ({ deaths: s.deaths + 1 })),
+  addKill: () => set((s) => {
+    const newStreak = s.killStreak + 1;
+    let msg: string | null = null;
+    if (s.kills === 0) msg = "FIRST BLOOD";
+    else if (newStreak === 2) msg = "DOUBLE KILL";
+    else if (newStreak === 3) msg = "TRIPLE KILL";
+    else if (newStreak === 4) msg = "QUAD KILL";
+    else if (newStreak >= 5) msg = "RAMPAGE!";
+    return { kills: s.kills + 1, coins: s.coins + 10, killStreak: newStreak, killStreakMsg: msg };
+  }),
+  addDeath: () => set((s) => ({ deaths: s.deaths + 1, killStreak: 0 })),
   setIsDead: (isDead) => set({ isDead }),
   setRespawnCountdown: (respawnCountdown) => set({ respawnCountdown }),
 
@@ -298,7 +386,20 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   resetMatchStats: () =>
-    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 0, maxAmmo: 0, isReloading: false, matchTimeLeft: 300000, matchLeaderboard: [] }),
+    set({
+      kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 0, maxAmmo: 0,
+      isReloading: false, matchTimeLeft: 300000, matchLeaderboard: [],
+      killStreak: 0, killStreakMsg: null, armor: 0,
+      inventory: { medkits: 0, bandages: 0, ammoBoxes: 0 },
+      pickedUpItems: [], boostBar: 0,
+      zonePhase: 0, zoneTimer: 60, zoneRadius: 74, zoneTargetRadius: 74,
+      zoneShrinking: false, zoneCenterX: 0, zoneCenterZ: 0, inZone: true,
+      weaponSlots: [null, null] as [string | null, string | null], activeSlot: 0,
+      nearbyItemType: null, nearbyItemIndex: null,
+      nearbyLootGun: null, nearbyLootIndex: null,
+      isSprinting: false, isCrouching: false, stamina: 100,
+      damageDir: null, playersAlive: 1,
+    }),
   setCurrentMap: (currentMap) => set({ currentMap }),
   setMatchMode: (matchMode) => set({ matchMode }),
   setMyTeamId: (myTeamId) => set({ myTeamId }),
@@ -331,6 +432,17 @@ export const useGameStore = create<GameState>((set) => ({
   pickupLoot: (idx, gunType) =>
     set((s) => {
       const cfg = GUN_CONFIG[gunType];
+      const slots = [...s.weaponSlots] as [string | null, string | null];
+      let activeSlot = s.activeSlot;
+      if (slots[0] === null) {
+        slots[0] = gunType;
+        activeSlot = 0;
+      } else if (slots[1] === null) {
+        slots[1] = gunType;
+        activeSlot = 1;
+      } else {
+        slots[activeSlot] = gunType;
+      }
       return {
         hasGun: true,
         selectedGun: gunType,
@@ -339,6 +451,8 @@ export const useGameStore = create<GameState>((set) => ({
         pickedUpLoot: [...s.pickedUpLoot, idx],
         nearbyLootGun: null,
         nearbyLootIndex: null,
+        weaponSlots: slots,
+        activeSlot,
       };
     }),
   setEliminated: (eliminated) => set({ eliminated }),
@@ -355,5 +469,85 @@ export const useGameStore = create<GameState>((set) => ({
       ammo: 0,
       maxAmmo: 0,
       selectedGun: "AK-47",
+      armor: 0,
+      weaponSlots: [null, null],
+      activeSlot: 0,
+      stamina: 100,
+      isSprinting: false,
+      isCrouching: false,
+      killStreak: 0,
+      killStreakMsg: null,
+      inventory: { medkits: 0, bandages: 0, ammoBoxes: 0 },
+      pickedUpItems: [],
+      boostBar: 0,
+      zonePhase: 0,
+      zoneTimer: 60,
+      zoneRadius: 74,
+      zoneTargetRadius: 74,
+      zoneShrinking: false,
+      zoneCenterX: 0,
+      zoneCenterZ: 0,
+      inZone: true,
+      playersAlive: Object.keys(useGameStore.getState().remotePlayers).length + 1,
     }),
+
+  setArmor: (armor) => set({ armor: Math.min(100, Math.max(0, armor)) }),
+  setIsSprinting: (isSprinting) => set({ isSprinting }),
+  setIsCrouching: (isCrouching) => set({ isCrouching }),
+  setStamina: (stamina) => set({ stamina: Math.min(100, Math.max(0, stamina)) }),
+  setActiveSlot: (activeSlot) => set({ activeSlot }),
+  switchWeapon: (slot) =>
+    set((s) => {
+      const gun = s.weaponSlots[slot];
+      if (!gun) return s;
+      const cfg = GUN_CONFIG[gun];
+      return {
+        activeSlot: slot,
+        selectedGun: gun,
+        ammo: cfg?.ammoCapacity ?? 30,
+        maxAmmo: cfg?.ammoCapacity ?? 30,
+        isReloading: false,
+      };
+    }),
+  setZonePhase: (zonePhase) => set({ zonePhase }),
+  setZoneTimer: (zoneTimer) => set({ zoneTimer }),
+  setZoneRadius: (zoneRadius) => set({ zoneRadius }),
+  setZoneTargetRadius: (zoneTargetRadius) => set({ zoneTargetRadius }),
+  setZoneShrinking: (zoneShrinking) => set({ zoneShrinking }),
+  setZoneCenter: (zoneCenterX, zoneCenterZ) => set({ zoneCenterX, zoneCenterZ }),
+  setInZone: (inZone) => set({ inZone }),
+  setKillStreak: (killStreak) => set({ killStreak }),
+  setKillStreakMsg: (killStreakMsg) => set({ killStreakMsg }),
+  setDamageDir: (damageDir) => set({ damageDir }),
+  setPlayersAlive: (playersAlive) => set({ playersAlive }),
+  addInventory: (type, count) =>
+    set((s) => ({
+      inventory: { ...s.inventory, [type]: s.inventory[type] + count },
+    })),
+  useMedkit: () =>
+    set((s) => {
+      if (s.inventory.medkits <= 0 || s.health >= 100) return s;
+      return {
+        health: Math.min(100, s.health + 50),
+        inventory: { ...s.inventory, medkits: s.inventory.medkits - 1 },
+      };
+    }),
+  useBandage: () =>
+    set((s) => {
+      if (s.inventory.bandages <= 0 || s.health >= 75) return s;
+      return {
+        health: Math.min(75, s.health + 15),
+        inventory: { ...s.inventory, bandages: s.inventory.bandages - 1 },
+      };
+    }),
+  setNearbyItem: (nearbyItemType, nearbyItemIndex) => set({ nearbyItemType, nearbyItemIndex }),
+  pickupItem: (idx) =>
+    set((s) => {
+      return {
+        pickedUpItems: [...s.pickedUpItems, idx],
+        nearbyItemType: null,
+        nearbyItemIndex: null,
+      };
+    }),
+  setBoostBar: (boostBar) => set({ boostBar: Math.min(100, Math.max(0, boostBar)) }),
 }));

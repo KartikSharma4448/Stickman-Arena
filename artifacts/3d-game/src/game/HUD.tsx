@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useGameStore } from "./store";
 import ShopModal from "./ShopModal";
+import Minimap from "./Minimap";
+import { playerPosX, playerPosZ, playerYaw } from "./PlayerController";
 
 function formatTime(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -61,96 +63,66 @@ function ADSCrosshair() {
   );
 }
 
-// ── Barmuda-specific HUD overlays ──────────────────────────────────────────
-
 function BarmudaDropOverlay({ altitude }: { altitude: number }) {
   return (
     <div style={{
-      position: "fixed",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      zIndex: 55,
-      textAlign: "center",
-      pointerEvents: "none",
+      position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+      zIndex: 55, textAlign: "center", pointerEvents: "none",
     }}>
       <div style={{
-        background: "rgba(0,0,0,0.5)",
-        borderRadius: 16,
-        padding: "18px 32px",
-        backdropFilter: "blur(8px)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        background: "rgba(0,0,0,0.5)", borderRadius: 16, padding: "18px 32px",
+        backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.12)",
       }}>
         <div style={{ fontSize: 13, color: "#87ceeb", letterSpacing: 3, marginBottom: 6 }}>PARACHUTING</div>
         <div style={{ fontSize: 42, fontWeight: 900, color: "#fff", fontFamily: "monospace", lineHeight: 1 }}>
           {Math.round(altitude)}<span style={{ fontSize: 16, color: "#aaa", marginLeft: 4 }}>m</span>
         </div>
         <div style={{ fontSize: 11, color: "#ffcc44", marginTop: 8, letterSpacing: 1 }}>
-          WASD — Steer  •  Land to play
+          WASD — Steer  |  Land to play
         </div>
       </div>
     </div>
   );
 }
 
-function LivesDisplay({ lives, map }: { lives: number; map: string }) {
-  if (map !== "barmuda") return null;
+function LivesDisplay({ lives }: { lives: number }) {
   return (
     <div style={{
-      position: "fixed",
-      top: 20,
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 40,
-      display: "flex",
-      gap: 6,
-      alignItems: "center",
-      background: "rgba(0,0,0,0.55)",
-      borderRadius: 20,
-      padding: "6px 16px",
-      backdropFilter: "blur(6px)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      display: "flex", gap: 6, alignItems: "center",
     }}>
-      <span style={{ fontSize: 10, color: "#888", letterSpacing: 2, marginRight: 4 }}>BARMUDA</span>
       {[0, 1].map((i) => (
-        <span key={i} style={{ fontSize: 20, filter: i < lives ? "none" : "grayscale(1) opacity(0.3)" }}>
-          ❤️
+        <span key={i} style={{ fontSize: 18, filter: i < lives ? "none" : "grayscale(1) opacity(0.3)" }}>
+          &#10084;&#65039;
         </span>
       ))}
-      <span style={{ fontSize: 10, color: lives > 0 ? "#6bcb77" : "#ff6b6b", letterSpacing: 1, marginLeft: 4 }}>
-        {lives > 0 ? `${lives} LIVES` : "LAST LIFE"}
+      <span style={{ fontSize: 9, color: lives > 0 ? "#6bcb77" : "#ff6b6b", letterSpacing: 1 }}>
+        {lives > 0 ? `${lives}` : "0"}
       </span>
     </div>
   );
 }
 
-function PickupPrompt({ gun }: { gun: string | null }) {
-  if (!gun) return null;
+function PickupPrompt({ gun, itemType }: { gun: string | null; itemType: string | null }) {
+  const label = gun || (itemType === "medkit" ? "Medkit" : itemType === "bandage" ? "Bandage" : itemType === "armor" ? "Armor" : itemType === "ammo" ? "Ammo" : null);
+  if (!label) return null;
   const gunColors: Record<string, string> = {
     "AK-47": "#ff6b35", "SMG": "#4ecdc4", "Sniper": "#9b59b6",
     "Shotgun": "#ffd93d", "Pistol": "#c8d6e5",
+    "Medkit": "#ff4444", "Bandage": "#ff8888", "Armor": "#4488ff", "Ammo": "#ffaa00",
   };
-  const color = gunColors[gun] || "#fff";
+  const color = gunColors[label] || "#fff";
   return (
     <div style={{
-      position: "fixed",
-      bottom: 140,
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 50,
-      pointerEvents: "none",
+      position: "fixed", bottom: 140, left: "50%", transform: "translateX(-50%)",
+      zIndex: 50, pointerEvents: "none",
     }}>
       <div style={{
-        background: "rgba(0,0,0,0.75)",
-        borderRadius: 12,
-        padding: "10px 22px",
-        backdropFilter: "blur(8px)",
-        border: `1px solid ${color}55`,
-        textAlign: "center",
-        boxShadow: `0 0 20px ${color}33`,
+        background: "rgba(0,0,0,0.75)", borderRadius: 12, padding: "10px 22px",
+        backdropFilter: "blur(8px)", border: `1px solid ${color}55`,
+        textAlign: "center", boxShadow: `0 0 20px ${color}33`,
       }}>
         <div style={{ fontSize: 11, color, letterSpacing: 2, marginBottom: 2 }}>PRESS E TO PICK UP</div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: "#fff" }}>{gun}</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: "#fff" }}>{label}</div>
       </div>
     </div>
   );
@@ -158,17 +130,11 @@ function PickupPrompt({ gun }: { gun: string | null }) {
 
 function EliminatedScreen() {
   const setPhase = useGameStore((s) => s.setPhase);
+  const kills = useGameStore((s) => s.kills);
   return (
     <div style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 70,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "rgba(0,0,0,0.75)",
-      backdropFilter: "blur(6px)",
+      position: "fixed", inset: 0, zIndex: 70, display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
     }}>
       <div style={{ fontSize: 64, fontWeight: 900, color: "#f44336", letterSpacing: 6, textShadow: "0 0 60px rgba(244,67,54,0.7)" }}>
         ELIMINATED
@@ -176,23 +142,153 @@ function EliminatedScreen() {
       <div style={{ fontSize: 18, color: "#aaa", marginTop: 12, letterSpacing: 2 }}>
         Both lives used — better luck next time!
       </div>
-      <button
-        onClick={() => setPhase("results")}
-        style={{
-          marginTop: 32,
-          background: "rgba(244,67,54,0.2)",
-          border: "2px solid rgba(244,67,54,0.5)",
-          borderRadius: 12,
-          padding: "12px 36px",
-          color: "#f44336",
-          fontSize: 16,
-          fontWeight: "bold",
-          cursor: "pointer",
-          letterSpacing: 2,
-        }}
-      >
+      <div style={{ fontSize: 24, color: "#ffd93d", marginTop: 8, fontWeight: "bold" }}>
+        {kills} KILLS
+      </div>
+      <button onClick={() => setPhase("results")} style={{
+        marginTop: 32, background: "rgba(244,67,54,0.2)", border: "2px solid rgba(244,67,54,0.5)",
+        borderRadius: 12, padding: "12px 36px", color: "#f44336", fontSize: 16, fontWeight: "bold",
+        cursor: "pointer", letterSpacing: 2,
+      }}>
         VIEW RESULTS
       </button>
+    </div>
+  );
+}
+
+function DamageDirection({ angle }: { angle: number }) {
+  const relAngle = angle - playerYaw;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 48, pointerEvents: "none" }}>
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: `translate(-50%, -50%) rotate(${-relAngle}rad)`,
+        width: 200, height: 200,
+      }}>
+        <div style={{
+          position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+          width: 0, height: 0,
+          borderLeft: "12px solid transparent",
+          borderRight: "12px solid transparent",
+          borderBottom: "24px solid rgba(255,50,50,0.7)",
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function KillStreakBanner({ msg }: { msg: string }) {
+  return (
+    <div style={{
+      position: "fixed", top: "30%", left: "50%", transform: "translate(-50%, -50%)",
+      zIndex: 52, pointerEvents: "none",
+      animation: "fadeInUp 0.3s ease-out",
+    }}>
+      <div style={{
+        fontSize: 36, fontWeight: 900, letterSpacing: 4,
+        color: msg === "FIRST BLOOD" ? "#ff4444" : "#ffd93d",
+        textShadow: `0 0 40px ${msg === "FIRST BLOOD" ? "rgba(255,68,68,0.6)" : "rgba(255,217,61,0.6)"}`,
+        textAlign: "center",
+      }}>
+        {msg}
+      </div>
+    </div>
+  );
+}
+
+function ZoneInfo({ timer, phase, shrinking, inZone }: {
+  timer: number; phase: number; shrinking: boolean; inZone: boolean;
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+    }}>
+      <div style={{
+        width: 10, height: 10, borderRadius: "50%",
+        background: !inZone ? "#ff4444" : shrinking ? "#ffd93d" : "#00aaff",
+        boxShadow: !inZone ? "0 0 8px rgba(255,68,68,0.6)" : "none",
+        animation: !inZone ? "pulse 1s infinite" : "none",
+      }} />
+      <div style={{ fontSize: 10, color: "#aaa", letterSpacing: 1 }}>
+        {shrinking ? "SHRINKING" : `ZONE ${phase + 1}`}
+      </div>
+      {!shrinking && (
+        <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
+          {Math.ceil(timer)}s
+        </div>
+      )}
+      {!inZone && (
+        <div style={{ fontSize: 10, color: "#ff4444", fontWeight: "bold" }}>OUTSIDE!</div>
+      )}
+    </div>
+  );
+}
+
+function WeaponSlots({ slots, activeSlot }: { slots: [string | null, string | null]; activeSlot: number }) {
+  const switchWeapon = useGameStore((s) => s.switchWeapon);
+  return (
+    <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
+      {slots.map((gun, i) => (
+        <div
+          key={i}
+          onClick={() => gun && switchWeapon(i)}
+          style={{
+            width: 85, padding: "5px 8px",
+            background: i === activeSlot ? "rgba(255,204,68,0.15)" : "rgba(255,255,255,0.04)",
+            border: i === activeSlot ? "1px solid rgba(255,204,68,0.5)" : "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 6, cursor: gun ? "pointer" : "default",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 8, color: "#666", letterSpacing: 1 }}>{i + 1}</div>
+          <div style={{ fontSize: 11, color: gun ? (i === activeSlot ? "#ffd93d" : "#aaa") : "#333", fontWeight: "bold" }}>
+            {gun || "—"}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StaminaBar({ stamina }: { stamina: number }) {
+  if (stamina >= 99.5) return null;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ fontSize: 8, color: "#666", letterSpacing: 1, marginBottom: 2 }}>STAMINA</div>
+      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{
+          width: `${stamina}%`, height: "100%",
+          background: stamina > 30 ? "linear-gradient(90deg, #ff88ff88, #ff88ff)" : "linear-gradient(90deg, #ff444488, #ff4444)",
+          borderRadius: 2, transition: "width 0.15s",
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function InventoryBar({ inventory }: { inventory: { medkits: number; bandages: number; ammoBoxes: number } }) {
+  if (inventory.medkits === 0 && inventory.bandages === 0 && inventory.ammoBoxes === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 8, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      {inventory.medkits > 0 && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 14 }}>&#10133;</div>
+          <div style={{ fontSize: 9, color: "#ff4444", fontWeight: "bold" }}>{inventory.medkits}</div>
+        </div>
+      )}
+      {inventory.bandages > 0 && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 14 }}>&#129657;</div>
+          <div style={{ fontSize: 9, color: "#ff8888", fontWeight: "bold" }}>{inventory.bandages}</div>
+        </div>
+      )}
+      {inventory.ammoBoxes > 0 && (
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 12 }}>&#128299;</div>
+          <div style={{ fontSize: 9, color: "#ffaa00", fontWeight: "bold" }}>{inventory.ammoBoxes}</div>
+        </div>
+      )}
+      <div style={{ fontSize: 8, color: "#555", alignSelf: "center", letterSpacing: 1 }}>F HEAL</div>
     </div>
   );
 }
@@ -219,9 +315,7 @@ export default function HUD() {
   const setIsTpp = useGameStore((s) => s.setIsTpp);
   const matchTimeLeft = useGameStore((s) => s.matchTimeLeft);
   const currentMap = useGameStore((s) => s.currentMap);
-  const myId = useGameStore((s) => s.myId);
 
-  // Barmuda-specific
   const hasGun = useGameStore((s) => s.hasGun);
   const livesLeft = useGameStore((s) => s.livesLeft);
   const barmudaDropping = useGameStore((s) => s.barmudaDropping);
@@ -231,33 +325,71 @@ export default function HUD() {
   const pickupLoot = useGameStore((s) => s.pickupLoot);
   const nearbyLootIndex = useGameStore((s) => s.nearbyLootIndex);
 
+  const armor = useGameStore((s) => s.armor);
+  const stamina = useGameStore((s) => s.stamina);
+  const weaponSlots = useGameStore((s) => s.weaponSlots);
+  const activeSlot = useGameStore((s) => s.activeSlot);
+  const zonePhase = useGameStore((s) => s.zonePhase);
+  const zoneTimer = useGameStore((s) => s.zoneTimer);
+  const zoneShrinking = useGameStore((s) => s.zoneShrinking);
+  const inZone = useGameStore((s) => s.inZone);
+  const killStreakMsg = useGameStore((s) => s.killStreakMsg);
+  const damageDir = useGameStore((s) => s.damageDir);
+  const playersAlive = useGameStore((s) => s.playersAlive);
+  const inventory = useGameStore((s) => s.inventory);
+  const nearbyItemType = useGameStore((s) => s.nearbyItemType);
+  const isSprinting = useGameStore((s) => s.isSprinting);
+
   const [showShop, setShowShop] = useState(false);
+  const [minimapPos, setMinimapPos] = useState({ x: 0, z: 0, yaw: 0 });
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setMinimapPos({ x: playerPosX, z: playerPosZ, yaw: playerYaw });
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (killStreakMsg) {
+      const t = setTimeout(() => useGameStore.getState().setKillStreakMsg(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [killStreakMsg]);
 
   const scoreboard = Object.values(remotePlayers).sort((a, b) => b.kills - a.kills);
   const kd = deaths > 0 ? (kills / deaths).toFixed(1) : kills.toString();
   const healthColor = health > 60 ? "#00e676" : health > 30 ? "#ffb300" : "#f44336";
-
-  const gunIcon: Record<string, string> = { "AK-47": "🔫", "SMG": "💥", "Sniper": "🎯", "Shotgun": "🔧", "Pistol": "🔫" };
-
   const isBarmuda = currentMap === "barmuda";
+
+  const aliveCount = isBarmuda
+    ? Object.values(remotePlayers).length + (eliminated ? 0 : 1)
+    : Object.values(remotePlayers).length + 1;
 
   return (
     <>
       {showShop && <ShopModal onClose={() => setShowShop(false)} />}
 
-      {/* Eliminated overlay */}
       {eliminated && <EliminatedScreen />}
 
-      {/* Hit flash */}
       {hitIndicator && (
         <div style={{ position: "fixed", inset: 0, border: "6px solid rgba(255,0,0,0.6)", pointerEvents: "none", zIndex: 50 }} />
       )}
 
-      {/* SCOPE OVERLAYS */}
+      {!inZone && isBarmuda && !barmudaDropping && (
+        <div style={{
+          position: "fixed", inset: 0, pointerEvents: "none", zIndex: 47,
+          border: "4px solid rgba(0,170,255,0.4)",
+          background: "radial-gradient(ellipse at center, transparent 60%, rgba(0,100,255,0.08) 100%)",
+        }} />
+      )}
+
+      {damageDir !== null && <DamageDirection angle={damageDir} />}
+      {killStreakMsg && <KillStreakBanner msg={killStreakMsg} />}
+
       {isScoped && selectedGun === "Sniper" && <SniperScope />}
       {isScoped && selectedGun !== "Sniper" && <ADSCrosshair />}
 
-      {/* CROSSHAIR */}
       {!isScoped && hasGun && !barmudaDropping && (
         <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 40, pointerEvents: "none", width: 28, height: 28 }}>
           <div style={{ position: "absolute", width: 2, height: 10, background: "rgba(255,255,255,0.9)", left: "50%", top: 0, transform: "translateX(-50%)" }} />
@@ -268,57 +400,112 @@ export default function HUD() {
         </div>
       )}
 
-      {/* ADS hint for Sniper */}
       {!isScoped && hasGun && selectedGun === "Sniper" && !barmudaDropping && (
         <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 40, pointerEvents: "none", background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "4px 12px", fontSize: 10, color: "rgba(255,255,255,0.5)", letterSpacing: 1 }}>
           RIGHT CLICK — SCOPE
         </div>
       )}
 
-      {/* BARMUDA: Drop overlay */}
       {isBarmuda && barmudaDropping && <BarmudaDropOverlay altitude={barmudaDropAlt} />}
+      {isBarmuda && !barmudaDropping && <PickupPrompt gun={nearbyLootGun} itemType={nearbyItemType} />}
 
-      {/* BARMUDA: Lives display (top center) */}
-      {isBarmuda && !barmudaDropping && <LivesDisplay lives={livesLeft} map={currentMap} />}
-
-      {/* BARMUDA: Loot pickup prompt */}
-      {isBarmuda && !barmudaDropping && <PickupPrompt gun={nearbyLootGun} />}
-
-      {/* BARMUDA: No gun indicator */}
       {isBarmuda && !hasGun && !barmudaDropping && (
         <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", zIndex: 40, pointerEvents: "none" }}>
           <div style={{ background: "rgba(0,0,0,0.6)", borderRadius: 10, padding: "8px 20px", border: "1px solid rgba(255,107,107,0.4)", fontSize: 13, color: "#ff6b6b", letterSpacing: 2 }}>
-            ⚠ FIND A GUN!
+            FIND A GUN!
           </div>
         </div>
       )}
 
-      {/* BOTTOM-LEFT: Health + Ammo */}
-      <div style={{ position: "fixed", bottom: 20, left: 20, zIndex: 40 }}>
-        <div style={{ background: "rgba(0,0,0,0.6)", borderRadius: 14, padding: "14px 18px", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.07)", minWidth: 190 }}>
-          {/* Health */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-            <span style={{ fontSize: 9, color: "#888", letterSpacing: 1 }}>♥ HEALTH</span>
-            <span style={{ fontSize: 20, fontWeight: 900, color: healthColor, fontFamily: "monospace" }}>{Math.max(0, health)}</span>
+      {isSprinting && (
+        <div style={{ position: "fixed", bottom: 200, left: "50%", transform: "translateX(-50%)", zIndex: 40, pointerEvents: "none", fontSize: 10, color: "rgba(255,136,255,0.6)", letterSpacing: 2 }}>
+          SPRINTING
+        </div>
+      )}
+
+      {/* TOP BAR */}
+      <div style={{
+        position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)",
+        zIndex: 42, display: "flex", alignItems: "center", gap: 12,
+        background: "rgba(0,0,0,0.6)", borderRadius: 20, padding: "6px 16px",
+        backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.08)",
+      }}>
+        {isBarmuda && <LivesDisplay lives={livesLeft} />}
+        {isBarmuda && (
+          <div style={{ fontSize: 12, color: "#ffd93d", fontWeight: "bold" }}>
+            &#128100; {aliveCount}
           </div>
-          <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden", marginBottom: 14 }}>
-            <div style={{ width: `${Math.max(0, health)}%`, height: "100%", background: `linear-gradient(90deg, ${healthColor}88, ${healthColor})`, borderRadius: 3, transition: "width 0.2s, background 0.3s", boxShadow: `0 0 8px ${healthColor}55` }} />
+        )}
+        {isBarmuda && <ZoneInfo timer={zoneTimer} phase={zonePhase} shrinking={zoneShrinking} inZone={inZone} />}
+        {!isBarmuda && (
+          <div style={{ fontSize: 11, color: "#aaa" }}>{formatTime(matchTimeLeft)}</div>
+        )}
+        <button onClick={() => setIsTpp(!isTpp)} style={{
+          background: isTpp ? "rgba(74,158,255,0.18)" : "rgba(0,0,0,0.4)",
+          border: isTpp ? "1px solid rgba(74,158,255,0.5)" : "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 8, padding: "4px 10px", color: isTpp ? "#4a9eff" : "#aaa",
+          fontSize: 10, cursor: "pointer", fontWeight: "bold",
+        }}>
+          {isTpp ? "TPP" : "FPP"}
+        </button>
+        {!isBarmuda && (
+          <button onClick={() => setShowShop(true)} style={{
+            background: "rgba(255,217,61,0.12)", border: "1px solid rgba(255,217,61,0.25)",
+            borderRadius: 8, padding: "4px 10px", color: "#ffd93d", fontSize: 10, cursor: "pointer", fontWeight: "bold",
+          }}>
+            SHOP
+          </button>
+        )}
+        <button onClick={() => setPhase("results")} style={{
+          background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 8, padding: "4px 10px", color: "#555", fontSize: 10, cursor: "pointer",
+        }}>
+          END
+        </button>
+      </div>
+
+      {/* MINIMAP (top-right) */}
+      {isBarmuda && !barmudaDropping && (
+        <Minimap playerX={minimapPos.x} playerZ={minimapPos.z} playerYaw={minimapPos.yaw} />
+      )}
+
+      {/* BOTTOM-LEFT: Health + Armor + Ammo */}
+      <div style={{ position: "fixed", bottom: 20, left: 20, zIndex: 40 }}>
+        <div style={{
+          background: "rgba(0,0,0,0.6)", borderRadius: 14, padding: "14px 18px",
+          backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.07)", minWidth: 190,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+            <span style={{ fontSize: 9, color: "#888", letterSpacing: 1 }}>HP</span>
+            <span style={{ fontSize: 20, fontWeight: 900, color: healthColor, fontFamily: "monospace" }}>{Math.max(0, Math.round(health))}</span>
+          </div>
+          <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden", marginBottom: armor > 0 ? 6 : 14 }}>
+            <div style={{ width: `${Math.max(0, health)}%`, height: "100%", background: `linear-gradient(90deg, ${healthColor}88, ${healthColor})`, borderRadius: 3, transition: "width 0.2s", boxShadow: `0 0 8px ${healthColor}55` }} />
           </div>
 
-          {/* Ammo / Gun */}
-          {!isBarmuda || hasGun ? (
+          {armor > 0 && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                <span style={{ fontSize: 9, color: "#4488ff", letterSpacing: 1 }}>ARMOR</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#4488ff", fontFamily: "monospace" }}>{Math.round(armor)}</span>
+              </div>
+              <div style={{ height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ width: `${armor}%`, height: "100%", background: "linear-gradient(90deg, #224488, #4488ff)", borderRadius: 2, transition: "width 0.2s" }} />
+              </div>
+            </>
+          )}
+
+          {(!isBarmuda || hasGun) ? (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#888", letterSpacing: 1 }}>
-                  {gunIcon[selectedGun] || "🔫"} {selectedGun}
-                </span>
+                <span style={{ fontSize: 9, color: "#888", letterSpacing: 1 }}>{selectedGun}</span>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
                   <span style={{ fontSize: 20, fontWeight: 900, color: ammo <= 5 ? "#f44336" : "#fff", fontFamily: "monospace" }}>{ammo}</span>
                   <span style={{ fontSize: 11, color: "#444" }}>/{maxAmmo}</span>
                 </div>
               </div>
               {isReloading ? (
-                <div style={{ fontSize: 10, color: "#ffd93d", fontWeight: "bold", letterSpacing: 2 }}>↺ RELOADING...</div>
+                <div style={{ fontSize: 10, color: "#ffd93d", fontWeight: "bold", letterSpacing: 2 }}>RELOADING...</div>
               ) : (
                 <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                   {Array.from({ length: Math.min(maxAmmo, 45) }).map((_, i) => (
@@ -328,14 +515,21 @@ export default function HUD() {
               )}
             </>
           ) : (
-            <div style={{ fontSize: 11, color: "#ff6b6b", letterSpacing: 1 }}>🔍 Search for weapons</div>
+            <div style={{ fontSize: 11, color: "#ff6b6b", letterSpacing: 1 }}>Search for weapons</div>
           )}
+
+          {isBarmuda && <WeaponSlots slots={weaponSlots} activeSlot={activeSlot} />}
+          {isBarmuda && <StaminaBar stamina={stamina} />}
+          {isBarmuda && <InventoryBar inventory={inventory} />}
         </div>
       </div>
 
       {/* BOTTOM-RIGHT: Stats */}
       <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 40, textAlign: "right" }}>
-        <div style={{ background: "rgba(0,0,0,0.6)", borderRadius: 14, padding: "14px 18px", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{
+          background: "rgba(0,0,0,0.6)", borderRadius: 14, padding: "14px 18px",
+          backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.07)",
+        }}>
           <div style={{ fontSize: 28, fontWeight: 900, fontFamily: "monospace", lineHeight: 1 }}>
             <span style={{ color: "#6bcb77" }}>{kills}</span>
             <span style={{ color: "#333", fontSize: 18 }}> / </span>
@@ -352,37 +546,42 @@ export default function HUD() {
               <div style={{ fontSize: 9, color: "#444" }}>PING</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: "#ffd93d", fontWeight: "bold" }}>🪙 {coins}</div>
+              <div style={{ fontSize: 11, color: "#ffd93d", fontWeight: "bold" }}>{coins}</div>
               <div style={{ fontSize: 9, color: "#444" }}>COINS</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TOP-RIGHT: Kill feed */}
-      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 40, display: "flex", flexDirection: "column", gap: 4, maxWidth: 240 }}>
+      {/* TOP-LEFT: Kill feed */}
+      <div style={{ position: "fixed", top: 60, left: 20, zIndex: 40, display: "flex", flexDirection: "column", gap: 4, maxWidth: 240 }}>
         {killFeed.slice(0, 5).map((k) => (
-          <div key={k.id} style={{ background: "rgba(0,0,0,0.72)", padding: "5px 10px", borderRadius: 6, fontSize: 12, color: "#fff", display: "flex", gap: 6, alignItems: "center", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.06)", borderLeft: k.headshot ? "3px solid #ffd93d" : "3px solid #ff6b6b" }}>
+          <div key={k.id} style={{
+            background: "rgba(0,0,0,0.72)", padding: "5px 10px", borderRadius: 6,
+            fontSize: 12, color: "#fff", display: "flex", gap: 6, alignItems: "center",
+            backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.06)",
+            borderLeft: k.headshot ? "3px solid #ffd93d" : "3px solid #ff6b6b",
+          }}>
             <span style={{ color: "#88ccff", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k.killerName}</span>
-            {k.headshot && <span style={{ color: "#ffd93d", fontSize: 10 }}>🎯</span>}
-            <span style={{ color: "#ff6b6b" }}>→</span>
+            {k.headshot && <span style={{ color: "#ffd93d", fontSize: 10 }}>&#127919;</span>}
+            <span style={{ color: "#ff6b6b" }}>&#8594;</span>
             <span style={{ color: "#ff9999", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k.victimName}</span>
           </div>
         ))}
       </div>
 
-      {/* TOP-LEFT: Scoreboard */}
-      <div style={{ position: "fixed", top: 20, left: 20, zIndex: 40 }}>
-        <div style={{ background: "rgba(0,0,0,0.62)", borderRadius: 10, padding: "10px 14px", minWidth: 175, backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      {/* TOP-LEFT (below kill feed): Scoreboard */}
+      <div style={{ position: "fixed", top: 60 + killFeed.length * 30 + 10, left: 20, zIndex: 40 }}>
+        <div style={{
+          background: "rgba(0,0,0,0.62)", borderRadius: 10, padding: "10px 14px",
+          minWidth: 175, backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.06)",
+        }}>
           <div style={{ color: "#ffd93d", fontSize: 9, fontWeight: "bold", marginBottom: 6, letterSpacing: 1 }}>SCOREBOARD</div>
-          <div style={{ display: "flex", justifyContent: "space-between", color: "#333", fontSize: 8, marginBottom: 4 }}>
-            <span>NAME</span><span>K / D</span>
-          </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2, padding: "2px 0" }}>
-            <span style={{ color: "#4a9eff" }}>★ {myName.slice(0, 12)}</span>
+            <span style={{ color: "#4a9eff" }}>{myName.slice(0, 12)}</span>
             <span><span style={{ color: "#6bcb77" }}>{kills}</span>{" / "}<span style={{ color: "#ff6b6b" }}>{deaths}</span></span>
           </div>
-          {scoreboard.slice(0, 6).map((p) => (
+          {scoreboard.slice(0, 5).map((p) => (
             <div key={p.id} style={{ fontSize: 11, display: "flex", justifyContent: "space-between", color: "#666", marginBottom: 2, padding: "2px 0" }}>
               <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(p.name || "Player").slice(0, 12)}</span>
               <span><span style={{ color: "#6bcb77" }}>{p.kills}</span>{" / "}<span style={{ color: "#ff6b6b" }}>{p.deaths}</span></span>
@@ -391,47 +590,21 @@ export default function HUD() {
         </div>
       </div>
 
-      {/* TOP-CENTER buttons */}
-      <div style={{ position: "fixed", top: isBarmuda ? 58 : 20, left: "50%", transform: "translateX(-50%)", zIndex: 40, display: "flex", gap: 8 }}>
-        {!isBarmuda && (
-          <button onClick={() => setShowShop(true)} style={{ background: "rgba(255,217,61,0.12)", border: "1px solid rgba(255,217,61,0.25)", borderRadius: 8, padding: "6px 14px", color: "#ffd93d", fontSize: 11, cursor: "pointer", backdropFilter: "blur(4px)", fontWeight: "bold" }}>
-            🛒 SHOP
-          </button>
-        )}
-        <button onClick={() => setIsTpp(!isTpp)} style={{ background: isTpp ? "rgba(74,158,255,0.18)" : "rgba(0,0,0,0.4)", border: isTpp ? "1px solid rgba(74,158,255,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 14px", color: isTpp ? "#4a9eff" : "#aaa", fontSize: 11, cursor: "pointer", backdropFilter: "blur(4px)", fontWeight: "bold", letterSpacing: 0.5 }}>
-          {isTpp ? "👁 TPP" : "👁 FPP"}
-        </button>
-        <button onClick={() => setPhase("results")} style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 14px", color: "#555", fontSize: 11, cursor: "pointer", backdropFilter: "blur(4px)" }}>
-          END MATCH
-        </button>
-      </div>
-
       {/* MOBILE: Pickup button */}
       {isBarmuda && nearbyLootGun && nearbyLootIndex !== null && (
         <button
           onClick={() => pickupLoot(nearbyLootIndex!, nearbyLootGun!)}
           style={{
-            position: "fixed",
-            bottom: 160,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 55,
-            background: "rgba(255,204,68,0.9)",
-            border: "none",
-            borderRadius: 12,
-            padding: "12px 28px",
-            color: "#000",
-            fontSize: 15,
-            fontWeight: "bold",
-            cursor: "pointer",
-            letterSpacing: 1,
+            position: "fixed", bottom: 160, left: "50%", transform: "translateX(-50%)",
+            zIndex: 55, background: "rgba(255,204,68,0.9)", border: "none",
+            borderRadius: 12, padding: "12px 28px", color: "#000", fontSize: 15,
+            fontWeight: "bold", cursor: "pointer", letterSpacing: 1,
           }}
         >
           PICK UP {nearbyLootGun}
         </button>
       )}
 
-      {/* DEAD screen — Barmuda shows lives remaining */}
       {isDead && !eliminated && (
         <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 60, textAlign: "center" }}>
           <div style={{ fontSize: 56, fontWeight: 900, color: "#f44336", letterSpacing: 4, textShadow: "0 0 40px rgba(244,67,54,0.5)" }}>
@@ -448,6 +621,27 @@ export default function HUD() {
           </div>
         </div>
       )}
+
+      {/* Controls hint (bottom center) */}
+      {!isBarmuda && (
+        <div style={{
+          position: "fixed", bottom: 5, left: "50%", transform: "translateX(-50%)",
+          zIndex: 38, fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: 1,
+        }}>
+          WASD Move | SHIFT Sprint | C Crouch | R Reload | 1/2 Weapons | F Heal
+        </div>
+      )}
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translate(-50%, -30%); }
+          to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+      `}</style>
     </>
   );
 }

@@ -1,30 +1,40 @@
 import { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useGameStore } from "./store";
+import { useGameStore, ZONE_PHASES } from "./store";
 import { getSocket } from "./socket";
 import { ARENA_BOUNDS } from "./Arena";
 import { sharedArena } from "./arenaShared";
 import GunModel from "./GunModel";
-import { touchState, touchJumpPending, clearTouchJump, touchScopeActive, touchShootPending, clearTouchShoot } from "./TouchControls";
+import { touchState, touchJumpPending, clearTouchJump, touchScopeActive, touchShootPending, clearTouchShoot, touchSprintActive, touchCrouchPending, clearTouchCrouch } from "./TouchControls";
 import { GUN_CONFIG } from "./gunConfig";
-import { BARMUDA_LOOT } from "./Arena5";
+import { BARMUDA_LOOT, BARMUDA_ITEMS } from "./Arena5";
 
 const MOVE_SPEED = 7;
+const SPRINT_MULTIPLIER = 1.55;
+const CROUCH_MULTIPLIER = 0.5;
 const PLAYER_RADIUS = 0.35;
 const SEND_RATE = 1000 / 20;
 const JUMP_FORCE = 9;
 const GRAVITY = -22;
 const PARACHUTE_GRAVITY = -3.5;
 const LOOT_PICKUP_RADIUS = 2.0;
+const ITEM_PICKUP_RADIUS = 2.0;
+const STAMINA_DRAIN = 25;
+const STAMINA_RECOVER = 18;
 
 const EYE_HEIGHT = 1.63;
+const CROUCH_EYE_HEIGHT = 1.1;
 const FOV_DEFAULT = 75;
 const FOV_ADS = 55;
 const FOV_SNIPER = 18;
 const GUN_LOCAL_X = 0.25;
 const GUN_LOCAL_Y = 0.95;
 const GUN_LOCAL_Z = -0.65;
+
+export let playerPosX = 0;
+export let playerPosZ = 0;
+export let playerYaw = 0;
 
 interface Props {
   spawnPos: THREE.Vector3;
@@ -44,7 +54,6 @@ function localToWorld(
   );
 }
 
-// ── Parachute visual (above local player during drop) ─────────────────────
 function Parachute({ posRef }: { posRef: React.MutableRefObject<THREE.Vector3> }) {
   const ref = useRef<THREE.Group>(null!);
   useFrame(() => {
@@ -54,12 +63,10 @@ function Parachute({ posRef }: { posRef: React.MutableRefObject<THREE.Vector3> }
   });
   return (
     <group ref={ref}>
-      {/* Canopy */}
       <mesh>
         <sphereGeometry args={[2.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
         <meshStandardMaterial color="#ff6b35" side={THREE.DoubleSide} transparent opacity={0.85} />
       </mesh>
-      {/* Cords */}
       {[0, 1, 2, 3, 4, 5].map((i) => {
         const a = (i / 6) * Math.PI * 2;
         return (
@@ -74,7 +81,7 @@ function Parachute({ posRef }: { posRef: React.MutableRefObject<THREE.Vector3> }
 }
 
 function LocalCharacter({
-  posRef, yawRef, isMovingRef, isShootingRef, isReloadingRef, selectedGun, hasGun,
+  posRef, yawRef, isMovingRef, isShootingRef, isReloadingRef, selectedGun, hasGun, isCrouching,
 }: {
   posRef: React.MutableRefObject<THREE.Vector3>;
   yawRef: React.MutableRefObject<number>;
@@ -83,6 +90,7 @@ function LocalCharacter({
   isReloadingRef: React.MutableRefObject<boolean>;
   selectedGun: string;
   hasGun: boolean;
+  isCrouching: boolean;
 }) {
   const groupRef = useRef<THREE.Group>(null!);
   const bodyRef = useRef<THREE.Mesh>(null!);
@@ -97,6 +105,9 @@ function LocalCharacter({
     if (!groupRef.current) return;
     groupRef.current.position.copy(posRef.current);
     groupRef.current.rotation.y = yawRef.current + Math.PI;
+
+    const crouchScale = isCrouching ? 0.75 : 1;
+    groupRef.current.scale.y = THREE.MathUtils.lerp(groupRef.current.scale.y, crouchScale, 0.15);
 
     if (isMovingRef.current) {
       walkCycle.current += delta * 8.5;
@@ -145,7 +156,6 @@ function LocalCharacter({
 
   return (
     <group ref={groupRef}>
-      {/* HEAD */}
       <mesh position={[0, 1.65, 0]}>
         <boxGeometry args={[0.4, 0.4, 0.4]} />
         <meshStandardMaterial color="#f5b78f" roughness={0.9} />
@@ -167,7 +177,6 @@ function LocalCharacter({
         <meshBasicMaterial color="#8b4513" />
       </mesh>
 
-      {/* BODY */}
       <mesh ref={bodyRef} position={[0, 0.95, 0]}>
         <boxGeometry args={[0.44, 0.52, 0.22]} />
         <meshStandardMaterial color="#3a6bc4" roughness={0.85} />
@@ -177,7 +186,6 @@ function LocalCharacter({
         <meshStandardMaterial color="#2a5aaa" roughness={0.85} />
       </mesh>
 
-      {/* LEFT ARM */}
       <group ref={leftArmRef} position={[-0.26, 1.28, 0]} rotation={[-1.25, 0.12, 0.16]}>
         <mesh position={[0, -0.24, 0]}>
           <boxGeometry args={[0.2, 0.48, 0.22]} />
@@ -189,7 +197,6 @@ function LocalCharacter({
         </mesh>
       </group>
 
-      {/* RIGHT ARM */}
       <group ref={rightArmRef} position={[0.28, 1.25, 0]} rotation={[-1.15, -0.08, -0.14]}>
         <mesh position={[0, -0.24, 0]}>
           <boxGeometry args={[0.2, 0.48, 0.22]} />
@@ -201,14 +208,12 @@ function LocalCharacter({
         </mesh>
       </group>
 
-      {/* GUN — only shown when player has one */}
       {hasGun && (
         <group ref={gunGroupRef} position={[GUN_LOCAL_X, GUN_LOCAL_Y, GUN_LOCAL_Z]} rotation={[0, Math.PI, 0]}>
           <GunModel gunType={selectedGun} isShootingRef={isShootingRef} isReloadingRef={isReloadingRef} />
         </group>
       )}
 
-      {/* LEFT LEG */}
       <group ref={leftLegRef} position={[-0.11, 0.68, 0]}>
         <mesh position={[0, -0.32, 0]}>
           <boxGeometry args={[0.2, 0.64, 0.22]} />
@@ -220,7 +225,6 @@ function LocalCharacter({
         </mesh>
       </group>
 
-      {/* RIGHT LEG */}
       <group ref={rightLegRef} position={[0.11, 0.68, 0]}>
         <mesh position={[0, -0.32, 0]}>
           <boxGeometry args={[0.2, 0.64, 0.22]} />
@@ -232,7 +236,6 @@ function LocalCharacter({
         </mesh>
       </group>
 
-      {/* SHADOW */}
       <mesh position={[0, -0.003, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.42, 12]} />
         <meshBasicMaterial color="#000" transparent opacity={0.35} />
@@ -256,6 +259,7 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const isMovingRef = useRef(false);
   const isShootingRef = useRef(false);
   const isReloadingRef = useRef(false);
+  const zoneDamageTickRef = useRef(0);
 
   const isDead = useGameStore((s) => s.isDead);
   const setHealth = useGameStore((s) => s.setHealth);
@@ -274,7 +278,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const currentMapRef = useRef(currentMap);
   useEffect(() => { currentMapRef.current = currentMap; }, [currentMap]);
 
-  // Barmuda-specific
   const hasGun = useGameStore((s) => s.hasGun);
   const hasGunRef = useRef(hasGun);
   useEffect(() => { hasGunRef.current = hasGun; }, [hasGun]);
@@ -300,11 +303,14 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
   const setIsDead = useGameStore((s) => s.setIsDead);
   const addDeath = useGameStore((s) => s.addDeath);
 
+  const isCrouching = useGameStore((s) => s.isCrouching);
+  const isCrouchingRef = useRef(isCrouching);
+  useEffect(() => { isCrouchingRef.current = isCrouching; }, [isCrouching]);
+
   const isScopedRef = useRef(false);
   const mouseHeldRef = useRef(false);
   const singleShotFiredRef = useRef(false);
 
-  // ── Barmuda drop: set high Y on spawn ─────────────────────────────────
   useEffect(() => {
     if (currentMap === "barmuda" && barmudaDropping) {
       posRef.current.set(
@@ -323,7 +329,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     onGroundRef.current = true;
   }, [spawnPos]);
 
-  // ── Lives: when player dies on Barmuda ──────────────────────────────────
   useEffect(() => {
     if (!isDead) return;
     if (currentMapRef.current !== "barmuda") return;
@@ -334,7 +339,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     }
   }, [isDead]);
 
-  // ── E key: pickup loot ──────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "KeyE" && currentMapRef.current === "barmuda") {
@@ -342,13 +346,36 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         if (store.nearbyLootIndex !== null && store.nearbyLootGun !== null) {
           pickupLoot(store.nearbyLootIndex, store.nearbyLootGun);
         }
+        if (store.nearbyItemIndex !== null && store.nearbyItemType !== null) {
+          const item = BARMUDA_ITEMS[store.nearbyItemIndex];
+          if (item) {
+            store.pickupItem(store.nearbyItemIndex);
+            if (item.type === "medkit") store.addInventory("medkits", 1);
+            else if (item.type === "bandage") store.addInventory("bandages", 1);
+            else if (item.type === "ammo") store.addInventory("ammoBoxes", 1);
+            else if (item.type === "armor") store.setArmor(Math.min(100, store.armor + 50));
+          }
+        }
+      }
+      if (e.code === "Digit1") useGameStore.getState().switchWeapon(0);
+      if (e.code === "Digit2") useGameStore.getState().switchWeapon(1);
+      if (e.code === "KeyC") {
+        const s = useGameStore.getState();
+        s.setIsCrouching(!s.isCrouching);
+      }
+      if (e.code === "KeyF") {
+        const s = useGameStore.getState();
+        if (s.inventory.medkits > 0 && s.health < 100) {
+          s.useMedkit();
+        } else if (s.inventory.bandages > 0 && s.health < 75) {
+          s.useBandage();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [pickupLoot]);
 
-  // ── Standard key/mouse controls ─────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent, down: boolean) => {
       keysRef.current[e.code] = down;
@@ -458,10 +485,17 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       setHealth(data.health);
       isReloadingRef.current = false;
     };
-    const onDamage = (data: { health: number }) => {
+    const onDamage = (data: { health: number; fromX?: number; fromZ?: number }) => {
       setHealth(data.health);
       setHitIndicator(true);
       setTimeout(() => setHitIndicator(false), 300);
+      if (data.fromX !== undefined && data.fromZ !== undefined) {
+        const dx = data.fromX - posRef.current.x;
+        const dz = data.fromZ - posRef.current.z;
+        const angle = Math.atan2(dx, dz);
+        useGameStore.getState().setDamageDir(angle);
+        setTimeout(() => useGameStore.getState().setDamageDir(null), 1200);
+      }
     };
     const onKilled = () => {
       if (currentMapRef.current === "barmuda") {
@@ -492,7 +526,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     const fwX = -sinY, fwZ = -cosY;
     const rtX = cosY, rtZ = -sinY;
 
-    // Touch look
     if (touchState.lookJoystick.deltaX !== 0 || touchState.lookJoystick.deltaY !== 0) {
       yawRef.current -= touchState.lookJoystick.deltaX * 0.005;
       pitchRef.current -= touchState.lookJoystick.deltaY * 0.005;
@@ -507,7 +540,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     if (k["KeyA"] || k["ArrowLeft"])  moveDir.sub(new THREE.Vector3(rtX, 0, rtZ));
     if (k["KeyD"] || k["ArrowRight"]) moveDir.add(new THREE.Vector3(rtX, 0, rtZ));
 
-    // Touch movement
     if (touchState.moveJoystick.active) {
       const tdx = Math.min(1, Math.max(-1, touchState.moveJoystick.dx));
       const tdy = Math.min(1, Math.max(-1, touchState.moveJoystick.dy));
@@ -519,9 +551,30 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
     isMovingRef.current = moveDir.lengthSq() > 0.01;
     if (isMovingRef.current) moveDir.normalize();
 
-    const speed = MOVE_SPEED * delta;
+    const sprinting = (k["ShiftLeft"] || k["ShiftRight"] || touchSprintActive) && isMovingRef.current && !isCrouchingRef.current;
+    const store = useGameStore.getState();
+    if (sprinting && store.stamina > 0) {
+      if (!store.isSprinting) store.setIsSprinting(true);
+      const newStam = Math.max(0, store.stamina - STAMINA_DRAIN * delta);
+      if (Math.abs(newStam - store.stamina) > 0.1) store.setStamina(newStam);
+    } else {
+      if (store.isSprinting) store.setIsSprinting(false);
+      if (store.stamina < 100) {
+        const newStam = Math.min(100, store.stamina + STAMINA_RECOVER * delta);
+        if (Math.abs(newStam - store.stamina) > 0.1) store.setStamina(newStam);
+      }
+    }
 
-    // ── BARMUDA DROP phase — no collision, gentle gravity ─────────────────
+    if (touchCrouchPending) {
+      store.setIsCrouching(!store.isCrouching);
+      clearTouchCrouch();
+    }
+
+    let speedMult = 1;
+    if (store.isSprinting && store.stamina > 0) speedMult = SPRINT_MULTIPLIER;
+    if (isCrouchingRef.current) speedMult = CROUCH_MULTIPLIER;
+    const speed = MOVE_SPEED * speedMult * delta;
+
     if (barmudaDroppingRef.current) {
       const hSpeed = MOVE_SPEED * 0.7 * delta;
       posRef.current.x += moveDir.x * hSpeed;
@@ -539,25 +592,21 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         barmudaDroppingRef.current = false;
       }
     } else {
-      // Normal movement with collision
       const tryX = posRef.current.clone().addScaledVector(new THREE.Vector3(moveDir.x, 0, 0), speed);
       const tryZ = posRef.current.clone().addScaledVector(new THREE.Vector3(0, 0, moveDir.z), speed);
       if (!checkCollision(tryX)) posRef.current.x = tryX.x;
       if (!checkCollision(tryZ)) posRef.current.z = tryZ.z;
 
-      // Touch jump
       if (touchJumpPending && onGroundRef.current) {
         velYRef.current = JUMP_FORCE;
         onGroundRef.current = false;
         clearTouchJump();
       }
 
-      // Gravity
       velYRef.current += GRAVITY * delta;
       posRef.current.y += velYRef.current * delta;
       onGroundRef.current = false;
 
-      // Ground / platform detection
       let groundY = 0;
       const px = posRef.current.x;
       const pz = posRef.current.z;
@@ -587,7 +636,6 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
       }
     }
 
-    // ── Loot proximity check (Barmuda only) ─────────────────────────────
     if (currentMapRef.current === "barmuda" && !barmudaDroppingRef.current) {
       let closestDist = LOOT_PICKUP_RADIUS;
       let closestIdx: number | null = null;
@@ -605,149 +653,158 @@ export default function PlayerController({ spawnPos, onShoot }: Props) {
         }
       }
       setNearbyLoot(closestGun, closestIdx);
-    } else if (currentMapRef.current !== "barmuda") {
-      // Clear nearby loot on non-barmuda maps
+
+      let closestItemDist = ITEM_PICKUP_RADIUS;
+      let closestItemIdx: number | null = null;
+      let closestItemType: string | null = null;
+      const itemsPicked = useGameStore.getState().pickedUpItems;
+      for (let i = 0; i < BARMUDA_ITEMS.length; i++) {
+        if (itemsPicked.includes(i)) continue;
+        const item = BARMUDA_ITEMS[i];
+        const dx = posRef.current.x - item.x;
+        const dz = posRef.current.z - item.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < closestItemDist) {
+          closestItemDist = dist;
+          closestItemIdx = i;
+          closestItemType = item.type;
+        }
+      }
+      useGameStore.getState().setNearbyItem(closestItemType, closestItemIdx);
     }
 
-    // ── Camera (FPP or TPP) ──────────────────────────────────────────────
+    if (currentMapRef.current === "barmuda" && !barmudaDroppingRef.current) {
+      const s = useGameStore.getState();
+      const dx = posRef.current.x - s.zoneCenterX;
+      const dz = posRef.current.z - s.zoneCenterZ;
+      const distFromCenter = Math.sqrt(dx * dx + dz * dz);
+      const inZone = distFromCenter <= s.zoneRadius;
+      if (inZone !== s.inZone) s.setInZone(inZone);
+
+      if (!inZone) {
+        zoneDamageTickRef.current += delta;
+        if (zoneDamageTickRef.current >= 1) {
+          zoneDamageTickRef.current = 0;
+          const phase = ZONE_PHASES[s.zonePhase];
+          const dmg = phase ? phase.damage : 5;
+          const newHp = Math.max(0, s.health - dmg);
+          s.setHealth(newHp);
+          s.setHitIndicator(true);
+          setTimeout(() => s.setHitIndicator(false), 200);
+        }
+      } else {
+        zoneDamageTickRef.current = 0;
+      }
+    }
+
+    playerPosX = posRef.current.x;
+    playerPosZ = posRef.current.z;
+    playerYaw = yawRef.current;
+
     camera.rotation.order = "YXZ";
     camera.rotation.z = 0;
 
+    const eyeH = isCrouchingRef.current ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
+
     if (isTppRef.current) {
-      const tppDist = 3.8;
-      const tppHeight = barmudaDroppingRef.current ? 6 : 1.5;
-      const cosYc = Math.cos(yawRef.current);
-      const sinYc = Math.sin(yawRef.current);
-      const rightX = cosYc * 0.4;
-      const rightZ = -sinYc * 0.4;
-      camera.position.set(
-        posRef.current.x + tppDist * sinYc + rightX,
-        posRef.current.y + tppHeight,
-        posRef.current.z + tppDist * cosYc + rightZ,
-      );
-      camera.rotation.y = yawRef.current;
-      camera.rotation.x = Math.max(-0.7, Math.min(0.5, pitchRef.current));
+      const tppDist = 4.5;
+      const camX = posRef.current.x + Math.sin(yawRef.current) * tppDist;
+      const camZ = posRef.current.z + Math.cos(yawRef.current) * tppDist;
+      const camY = posRef.current.y + eyeH + 1.2 - Math.sin(pitchRef.current) * tppDist * 0.4;
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(posRef.current.x, posRef.current.y + eyeH, posRef.current.z);
     } else {
-      camera.position.set(posRef.current.x, posRef.current.y + EYE_HEIGHT, posRef.current.z);
-      camera.rotation.y = yawRef.current;
-      camera.rotation.x = pitchRef.current;
+      camera.position.set(posRef.current.x, posRef.current.y + eyeH, posRef.current.z);
+      camera.rotation.set(pitchRef.current, yawRef.current, 0);
     }
 
-    const effectiveScoped = isScopedRef.current || touchScopeActive;
-    setIsScoped(effectiveScoped);
+    const cfg = GUN_CONFIG[selectedGun] ?? GUN_CONFIG["AK-47"];
 
-    const cam = camera as THREE.PerspectiveCamera;
-    const targetFov = effectiveScoped
-      ? selectedGun === "Sniper" ? FOV_SNIPER : FOV_ADS
-      : FOV_DEFAULT;
-    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 1 - Math.exp(-14 * delta));
-    cam.updateProjectionMatrix();
+    if (isScopedRef.current || touchScopeActive) {
+      const tgtFov = selectedGun === "Sniper" ? FOV_SNIPER : FOV_ADS;
+      (camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp(
+        (camera as THREE.PerspectiveCamera).fov, tgtFov, 0.18,
+      );
+    } else {
+      (camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp(
+        (camera as THREE.PerspectiveCamera).fov, FOV_DEFAULT, 0.14,
+      );
+    }
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
 
-    // ── SHOOTING SYSTEM — disabled while dropping or without a gun ─────────
-    if (!barmudaDroppingRef.current && hasGunRef.current) {
-      const cfg = GUN_CONFIG[selectedGun] ?? GUN_CONFIG["AK-47"];
-      const nowMs = Date.now();
+    const now = performance.now();
 
-      const pcTrigger = mouseHeldRef.current && document.pointerLockElement === document.body;
-      const mobileTrigger = touchShootPending;
-      const triggerActive = pcTrigger || mobileTrigger;
-      if (mobileTrigger) clearTouchShoot();
+    const wantShoot =
+      hasGunRef.current &&
+      !isReloadingRef.current &&
+      ammo > 0 &&
+      (mouseHeldRef.current || touchShootPending) &&
+      !barmudaDroppingRef.current;
 
-      const wantFire = triggerActive && !isDead && !isReloadingRef.current
-        && (cfg.auto || !singleShotFiredRef.current);
+    if (wantShoot) {
+      const canAutoFire = cfg.auto || !singleShotFiredRef.current;
 
-      if (triggerActive && ammo <= 0 && !isReloadingRef.current) {
-        isReloadingRef.current = true;
-        setIsReloading(true);
-        setTimeout(() => { reload(); isReloadingRef.current = false; }, cfg.reloadTime);
-      }
-
-      if (!triggerActive) singleShotFiredRef.current = false;
-
-      if (wantFire && ammo > 0 && nowMs - lastShotRef.current >= cfg.fireRate) {
-        lastShotRef.current = nowMs;
-        singleShotFiredRef.current = true;
+      if (canAutoFire && now - lastShotRef.current >= cfg.fireRate) {
+        lastShotRef.current = now;
         isShootingRef.current = true;
-        setTimeout(() => { isShootingRef.current = false; }, 80);
+        singleShotFiredRef.current = true;
 
-        const baseDir = new THREE.Vector3();
-        camera.getWorldDirection(baseDir);
-        baseDir.normalize();
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const origin = camera.position.clone();
 
-        const aimOrigin = camera.position.clone().addScaledVector(baseDir, 0.3);
-
-        let barrelTip: THREE.Vector3;
-        if (isTppRef.current) {
-          const right = new THREE.Vector3(-baseDir.z, 0, baseDir.x).normalize();
-          barrelTip = posRef.current.clone()
-            .addScaledVector(right, 0.38)
-            .add(new THREE.Vector3(0, 1.25, 0))
-            .addScaledVector(baseDir, 0.65);
-        } else {
-          barrelTip = camera.position.clone().addScaledVector(baseDir, 1.8);
-        }
-
-        const pellets: Array<{ dirX: number; dirY: number; dirZ: number }> = [];
-        for (let pi = 0; pi < cfg.pellets; pi++) {
-          const d = baseDir.clone();
+        for (let p = 0; p < cfg.pellets; p++) {
+          const dir = forward.clone();
           if (cfg.spreadRad > 0) {
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.random() * cfg.spreadRad;
-            const right = new THREE.Vector3(0, 1, 0).cross(d).normalize();
-            if (right.lengthSq() < 0.001) right.set(1, 0, 0);
-            const up2 = new THREE.Vector3().crossVectors(right, d).normalize();
-            d.addScaledVector(right, Math.sin(phi) * Math.cos(theta));
-            d.addScaledVector(up2, Math.sin(phi) * Math.sin(theta));
-            d.normalize();
+            dir.x += (Math.random() - 0.5) * cfg.spreadRad * 2;
+            dir.y += (Math.random() - 0.5) * cfg.spreadRad * 2;
+            dir.normalize();
           }
-          pellets.push({ dirX: d.x, dirY: d.y, dirZ: d.z });
-        }
 
+          const socket = getSocket();
+          const sId = ++seqRef.current;
+          socket.emit("shoot", {
+            seq: sId,
+            ox: origin.x, oy: origin.y, oz: origin.z,
+            dx: dir.x, dy: dir.y, dz: dir.z,
+            gun: selectedGun,
+          });
+
+          onShoot(origin.clone(), dir.clone());
+        }
         recordShot(false);
-        onShoot(barrelTip, new THREE.Vector3(pellets[0].dirX, pellets[0].dirY, pellets[0].dirZ));
-        getSocket().emit("shoot", {
-          originX: aimOrigin.x,
-          originY: aimOrigin.y,
-          originZ: aimOrigin.z,
-          gunType: selectedGun,
-          pellets,
-        });
+        if (touchShootPending) clearTouchShoot();
+
+        setTimeout(() => { isShootingRef.current = false; }, 60);
       }
     }
 
-    // Network send
-    const now = Date.now();
-    if (now - lastSendRef.current > SEND_RATE) {
+    if (now - lastSendRef.current >= SEND_RATE) {
       lastSendRef.current = now;
-      seqRef.current++;
-      getSocket().emit("player_input", {
+      getSocket().emit("move", {
         x: posRef.current.x,
         y: posRef.current.y,
         z: posRef.current.z,
         rotY: yawRef.current,
         pitchX: pitchRef.current,
-        seq: seqRef.current,
       });
     }
   });
 
-  // TPP: show own body + parachute; FPP: show parachute only during drop
-  if (!isTpp) {
-    return barmudaDropping ? <Parachute posRef={posRef} /> : null;
-  }
-
   return (
-    <>
-      <LocalCharacter
-        posRef={posRef}
-        yawRef={yawRef}
-        isMovingRef={isMovingRef}
-        isShootingRef={isShootingRef}
-        isReloadingRef={isReloadingRef}
-        selectedGun={selectedGun}
-        hasGun={hasGun}
-      />
+    <group>
       {barmudaDropping && <Parachute posRef={posRef} />}
-    </>
+      {isTpp && (
+        <LocalCharacter
+          posRef={posRef}
+          yawRef={yawRef}
+          isMovingRef={isMovingRef}
+          isShootingRef={isShootingRef}
+          isReloadingRef={isReloadingRef}
+          selectedGun={selectedGun}
+          hasGun={hasGun}
+          isCrouching={isCrouching}
+        />
+      )}
+    </group>
   );
 }
