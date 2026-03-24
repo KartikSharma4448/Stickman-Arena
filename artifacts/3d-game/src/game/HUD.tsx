@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useGameStore } from "./store";
 import ShopModal from "./ShopModal";
 import Minimap from "./Minimap";
-import { playerPosX, playerPosZ, playerYaw, isAimbotActive } from "./PlayerController";
+import { playerPosX, playerPosZ, playerYaw } from "./PlayerController";
 
 function formatTime(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -342,12 +342,10 @@ export default function HUD() {
 
   const [showShop, setShowShop] = useState(false);
   const [minimapPos, setMinimapPos] = useState({ x: 0, z: 0, yaw: 0 });
-  const [aimbot, setAimbot] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => {
       setMinimapPos({ x: playerPosX, z: playerPosZ, yaw: playerYaw });
-      setAimbot(isAimbotActive());
     }, 100);
     return () => clearInterval(id);
   }, []);
@@ -421,16 +419,6 @@ export default function HUD() {
       {isSprinting && (
         <div style={{ position: "fixed", bottom: 200, left: "50%", transform: "translateX(-50%)", zIndex: 40, pointerEvents: "none", fontSize: 10, color: "rgba(255,136,255,0.6)", letterSpacing: 2 }}>
           SPRINTING
-        </div>
-      )}
-
-      {aimbot && (
-        <div style={{
-          position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%) translateY(30px)",
-          zIndex: 55, pointerEvents: "none", fontSize: 9, fontWeight: "bold",
-          color: "#ff2244", letterSpacing: 3, textShadow: "0 0 8px #ff2244",
-        }}>
-          AIM LOCK
         </div>
       )}
 

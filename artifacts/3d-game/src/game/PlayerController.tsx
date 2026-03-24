@@ -37,7 +37,6 @@ export let playerPosZ = 0;
 export let playerYaw = 0;
 
 let aimbotActive = false;
-export function isAimbotActive() { return aimbotActive; }
 
 interface Props {
   spawnPos: THREE.Vector3;
