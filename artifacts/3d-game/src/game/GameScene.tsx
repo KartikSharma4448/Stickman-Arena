@@ -23,17 +23,27 @@ const MAP_FOG: Record<string, { bg: string; fog: string; near: number; far: numb
 export default function GameScene() {
   const remotePlayers = useGameStore((s) => s.remotePlayers);
   const isDead = useGameStore((s) => s.isDead);
+  const eliminated = useGameStore((s) => s.eliminated);
   const myId = useGameStore((s) => s.myId);
   const addShootEvent = useGameStore((s) => s.addShootEvent);
   const graphicsQuality = useGameStore((s) => s.graphicsQuality);
   const reload = useGameStore((s) => s.reload);
   const currentMap = useGameStore((s) => s.currentMap);
+  const setHasGun = useGameStore((s) => s.setHasGun);
+  const setSelectedGun = useGameStore((s) => s.setSelectedGun);
   const spawnRef = useRef(new THREE.Vector3(0, 0, 0));
   const mapFog = MAP_FOG[currentMap] ?? MAP_FOG.highlands;
 
   const antialias = graphicsQuality === "high";
   const shadows = graphicsQuality !== "low";
-  const shadowMapSize = graphicsQuality === "high" ? 2048 : 1024;
+
+  // For non-Barmuda maps: restore gun state
+  useEffect(() => {
+    if (currentMap !== "barmuda") {
+      setHasGun(true);
+      setTimeout(() => setSelectedGun("AK-47"), 0);
+    }
+  }, [currentMap]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -53,9 +63,7 @@ export default function GameScene() {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.code === "KeyR") {
-        reload();
-      }
+      if (e.code === "KeyR") reload();
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -78,6 +86,8 @@ export default function GameScene() {
     [myId, addShootEvent],
   );
 
+  const showPlayer = !isDead && !eliminated;
+
   return (
     <Canvas
       camera={{ fov: 75, near: 0.05, far: 500 }}
@@ -96,14 +106,13 @@ export default function GameScene() {
       <fog attach="fog" args={[mapFog.fog, mapFog.near, mapFog.far]} />
 
       {currentMap === "highlands" && <Arena />}
-      {currentMap === "desert" && <Arena2 />}
-      {currentMap === "ruins" && <Arena3 />}
-      {currentMap === "bgmk" && <Arena4 />}
-      {currentMap === "barmuda" && <Arena5 />}
-      {/* Default to highlands if unknown */}
+      {currentMap === "desert"    && <Arena2 />}
+      {currentMap === "ruins"     && <Arena3 />}
+      {currentMap === "bgmk"      && <Arena4 />}
+      {currentMap === "barmuda"   && <Arena5 />}
       {!["highlands","desert","ruins","bgmk","barmuda"].includes(currentMap) && <Arena />}
 
-      {!isDead && (
+      {showPlayer && (
         <PlayerController
           spawnPos={spawnRef.current}
           onShoot={handleShoot}

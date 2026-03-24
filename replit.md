@@ -57,20 +57,24 @@ artifacts-monorepo/
   - WebSocket path: `/socket.io/` (proxied by Vite dev server from frontend)
 
 ### Game Features
-- 3D FPS with stickman low-poly characters
+- 3D FPS with stickman low-poly characters (Minecraft-style blocky)
 - Real-time multiplayer via WebSocket (20 tick rate)
-- Client-side prediction and interpolation for remote players
-- Raycast shooting with headshot detection (4x multiplier: 100 vs 25 damage)
-- 3-second respawn system with countdown
-- Kill feed with headshot indicator
-- Arena map with 16 cover objects and boundary walls
-- 9 random spawn points
-- Health bar HUD per player
-- Scoreboard (kills/deaths)
-- Mobile touch joysticks + fire button
-- Gun recoil and muzzle flash effects
-- Object pooling for visual effects
-- Performance: low-power GPU, lowp precision, no heavy post-processing
+- 5 maps: Highlands, Desert, Urban Ruins, Military Compound, **Barmuda** (battle royale)
+- FPP/TPP camera toggle
+- Weapons: AK-47, SMG, Sniper, Shotgun, Pistol with different stats
+- Raycast shooting with headshot detection
+- Kill feed, scoreboard, HUD
+
+### Barmuda Battle Royale Map (Arena5.tsx)
+- 150×150 island with ocean, beach, grass, roads, tropical palm trees
+- Zones: Pochinki (center), School, Military Base, Georgopol, Primorsk, Lipovka, Rozhok, Ferry Pier, Novorepnoye
+- **Walkable building interiors** — houses have open doorways with 4-wall collision system (gap at front)
+- **Helicopter drop** — players spawn at altitude 80m, parachute down to the island (parachute canopy visible)
+- **Loot system** — 27 gun pickups scattered across the map (glowing floating items); players start unarmed
+- **Pick up guns** — walk near a weapon and press E (or tap button on mobile)
+- **2 lives system** — each player gets only 2 lives; after both are used, "ELIMINATED" screen shows
+- **Barmuda HUD** — lives display, parachute altitude indicator, "Find a gun!" warning, loot pickup prompt
+- Helicopter visual flies across the map during drop phase
 
 ### Performance Optimizations
 - `powerPreference: "low-power"` WebGL

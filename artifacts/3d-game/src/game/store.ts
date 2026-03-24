@@ -92,7 +92,6 @@ interface GameState {
   hitShots: number;
   isScoped: boolean;
   isTpp: boolean;
-  // ─── Match state ───────────────────────────────────────────────────
   currentMap: string;
   matchMode: "solo" | "squad";
   myTeamId: number;
@@ -100,6 +99,16 @@ interface GameState {
   killTarget: number;
   matchLeaderboard: Array<{ id: string; name: string; kills: number; deaths: number; teamId: number }>;
   roomCode: string | null;
+
+  // ── Barmuda Battle Royale ──────────────────────────────────────────────────
+  hasGun: boolean;
+  livesLeft: number;
+  barmudaDropping: boolean;
+  barmudaDropAlt: number;
+  nearbyLootGun: string | null;
+  nearbyLootIndex: number | null;
+  pickedUpLoot: number[];
+  eliminated: boolean;
 
   setPhase: (p: GamePhase) => void;
   setMyId: (id: string) => void;
@@ -142,6 +151,16 @@ interface GameState {
   addXp: (amount: number) => void;
   addCoins: (amount: number) => void;
   buyItem: (itemId: string, price: number) => void;
+
+  // ── Barmuda setters ────────────────────────────────────────────────────────
+  setHasGun: (v: boolean) => void;
+  setLivesLeft: (v: number) => void;
+  setBarmudaDropping: (v: boolean) => void;
+  setBarmudaDropAlt: (v: number) => void;
+  setNearbyLoot: (gun: string | null, idx: number | null) => void;
+  pickupLoot: (idx: number, gunType: string) => void;
+  setEliminated: (v: boolean) => void;
+  resetBarmuda: () => void;
 }
 
 let killFeedIdCounter = 0;
@@ -157,8 +176,8 @@ export const useGameStore = create<GameState>((set) => ({
   coins: 500,
   ownedItems: [],
   health: 100,
-  ammo: 30,
-  maxAmmo: 30,
+  ammo: 0,
+  maxAmmo: 0,
   isReloading: false,
   kills: 0,
   deaths: 0,
@@ -188,6 +207,15 @@ export const useGameStore = create<GameState>((set) => ({
   killTarget: 40,
   matchLeaderboard: [],
   roomCode: null,
+
+  hasGun: true,
+  livesLeft: 2,
+  barmudaDropping: false,
+  barmudaDropAlt: 0,
+  nearbyLootGun: null,
+  nearbyLootIndex: null,
+  pickedUpLoot: [],
+  eliminated: false,
 
   setPhase: (phase) => set({ phase }),
   setMyId: (myId) => set({ myId }),
@@ -253,12 +281,12 @@ export const useGameStore = create<GameState>((set) => ({
   setLatency: (latency) => set({ latency }),
   setMatchResult: (matchResult) => set({ matchResult }),
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
-  setSelectedGun: (selectedGun) => set({
+  setSelectedGun: (selectedGun) => set((s) => ({
     selectedGun,
-    ammo: GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30,
-    maxAmmo: GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30,
+    ammo: s.hasGun ? (GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30) : 0,
+    maxAmmo: s.hasGun ? (GUN_CONFIG[selectedGun]?.ammoCapacity ?? 30) : 0,
     isReloading: false,
-  }),
+  })),
   setIsScoped: (isScoped) => set({ isScoped }),
   setIsTpp: (isTpp) => set({ isTpp }),
 
@@ -270,7 +298,7 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
   resetMatchStats: () =>
-    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 30, isReloading: false, matchTimeLeft: 300000, matchLeaderboard: [] }),
+    set({ kills: 0, deaths: 0, totalShots: 0, hitShots: 0, ammo: 0, maxAmmo: 0, isReloading: false, matchTimeLeft: 300000, matchLeaderboard: [] }),
   setCurrentMap: (currentMap) => set({ currentMap }),
   setMatchMode: (matchMode) => set({ matchMode }),
   setMyTeamId: (myTeamId) => set({ myTeamId }),
@@ -293,5 +321,39 @@ export const useGameStore = create<GameState>((set) => ({
     set((s) => {
       if (s.coins < price || s.ownedItems.includes(itemId)) return s;
       return { coins: s.coins - price, ownedItems: [...s.ownedItems, itemId] };
+    }),
+
+  setHasGun: (hasGun) => set({ hasGun }),
+  setLivesLeft: (livesLeft) => set({ livesLeft }),
+  setBarmudaDropping: (barmudaDropping) => set({ barmudaDropping }),
+  setBarmudaDropAlt: (barmudaDropAlt) => set({ barmudaDropAlt }),
+  setNearbyLoot: (nearbyLootGun, nearbyLootIndex) => set({ nearbyLootGun, nearbyLootIndex }),
+  pickupLoot: (idx, gunType) =>
+    set((s) => {
+      const cfg = GUN_CONFIG[gunType];
+      return {
+        hasGun: true,
+        selectedGun: gunType,
+        ammo: cfg?.ammoCapacity ?? 30,
+        maxAmmo: cfg?.ammoCapacity ?? 30,
+        pickedUpLoot: [...s.pickedUpLoot, idx],
+        nearbyLootGun: null,
+        nearbyLootIndex: null,
+      };
+    }),
+  setEliminated: (eliminated) => set({ eliminated }),
+  resetBarmuda: () =>
+    set({
+      hasGun: false,
+      livesLeft: 2,
+      barmudaDropping: true,
+      barmudaDropAlt: 80,
+      nearbyLootGun: null,
+      nearbyLootIndex: null,
+      pickedUpLoot: [],
+      eliminated: false,
+      ammo: 0,
+      maxAmmo: 0,
+      selectedGun: "AK-47",
     }),
 }));
