@@ -17,7 +17,6 @@ export default function ZoneSystem() {
 
   useFrame((_, delta) => {
     const s = useGameStore.getState();
-    if (s.currentMap !== "barmuda") return;
     if (s.barmudaDropping) return;
     if (s.eliminated) return;
 

@@ -359,7 +359,7 @@ export default function HUD() {
   const scoreboard = Object.values(remotePlayers).sort((a, b) => b.kills - a.kills);
   const kd = deaths > 0 ? (kills / deaths).toFixed(1) : kills.toString();
   const healthColor = health > 60 ? "#00e676" : health > 30 ? "#ffb300" : "#f44336";
-  const isBarmuda = currentMap === "barmuda";
+  const isBarmuda = true; // Forced true so it applies LIVE without reload
 
   const aliveCount = isBarmuda
     ? Object.values(remotePlayers).length + (eliminated ? 0 : 1)

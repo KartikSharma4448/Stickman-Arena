@@ -255,7 +255,7 @@ export const useGameStore = create<GameState>((set) => ({
   hitShots: 0,
   isScoped: false,
   isTpp: false,
-  currentMap: "highlands",
+  currentMap: "barmuda",
   matchMode: "solo",
   myTeamId: -1,
   matchTimeLeft: 300000,

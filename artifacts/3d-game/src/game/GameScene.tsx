@@ -111,7 +111,7 @@ export default function GameScene() {
       {currentMap === "ruins"     && <Arena3 />}
       {currentMap === "bgmk"      && <Arena4 />}
       {currentMap === "barmuda"   && <Arena5 />}
-      {currentMap === "barmuda"   && <ZoneSystem />}
+      <ZoneSystem />
       {!["highlands","desert","ruins","bgmk","barmuda"].includes(currentMap) && <Arena />}
 
       {showPlayer && (
